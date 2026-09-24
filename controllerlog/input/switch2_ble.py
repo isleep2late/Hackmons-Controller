@@ -224,12 +224,12 @@ _PRO_BUTTONS = {
     Bit.UP: "dpad_up", Bit.DOWN: "dpad_down", Bit.LEFT: "dpad_left", Bit.RIGHT: "dpad_right",
     Bit.CAPTURE: "misc1", Bit.GR: "right_paddle1", Bit.GL: "left_paddle1", Bit.C: "misc2",
 }
-# Same face bits as the Pro Controller: SDL 3.4's HandleGameCubeState maps bit 2 ("B") to
-# SOUTH and bit 3 ("A") to EAST exactly like HandleSwitchProState, so a GameCube pad reads the
-# same here and through SDL / switch2_usb.py. (Which physical button is which bit is still to
-# be confirmed by pressing them; see the README's open work.)
+# The GameCube controller reports its own A, B, X, Y in the bits of those names (confirmed by
+# pressing, through its standard HID report), so positionally: A bottom, B left, X right, Y top.
+# switch2_usb.py uses the same mapping; SDL 3.4's HandleGameCubeState reads them like a Pro
+# Controller instead (its A comes out as EAST).
 _GC_BUTTONS = {
-    Bit.B: "south", Bit.A: "east", Bit.Y: "west", Bit.X: "north",
+    Bit.A: "south", Bit.X: "east", Bit.B: "west", Bit.Y: "north",
     Bit.PLUS: "start", Bit.HOME: "guide",
     Bit.ZL: "left_shoulder", Bit.ZR: "right_shoulder",    # ZR slot == GameCube Z
     Bit.UP: "dpad_up", Bit.DOWN: "dpad_down", Bit.LEFT: "dpad_left", Bit.RIGHT: "dpad_right",

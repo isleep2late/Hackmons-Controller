@@ -63,7 +63,7 @@ def test_rest_report_is_centred_and_quiet():
 
 
 @pytest.mark.parametrize("byte,mask,name", [
-    (5, 0x01, "west"), (5, 0x02, "north"), (5, 0x04, "south"), (5, 0x08, "east"),
+    (5, 0x01, "north"), (5, 0x02, "east"), (5, 0x04, "west"), (5, 0x08, "south"),   # Y X B A
     (5, 0x40, "misc4"), (5, 0x80, "right_shoulder"), (6, 0x02, "start"), (6, 0x10, "guide"),
     (6, 0x20, "misc1"), (6, 0x40, "misc2"), (7, 0x01, "dpad_down"), (7, 0x02, "dpad_up"),
     (7, 0x04, "dpad_right"), (7, 0x08, "dpad_left"), (7, 0x40, "misc3"), (7, 0x80, "left_shoulder"),
@@ -165,7 +165,7 @@ def run_backend(transports, seconds=0.5):
 
 
 def test_backend_publishes_changes_and_handles_unplug():
-    press_a = with_bytes(REST, b5=0x04)
+    press_a = with_bytes(REST, b5=0x08)          # the GameCube's A: bit 3, bottom button
     t1 = FakeTransport([REST, REST, press_a, press_a, REST])
     be, events = run_backend([t1])
     kinds = [(e.kind, e.code, e.value) for e in events if e.device == 0]

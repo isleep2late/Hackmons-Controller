@@ -24,6 +24,7 @@ final class InputRouter {
         List<AndroidInput.AxisRoute> routes;
         boolean analogTriggers;
         int vendorId;
+        int productId;
         int hatX;
         int hatY;
     }
@@ -62,9 +63,10 @@ final class InputRouter {
                 axes[i] = ranges.get(i).getAxis();
             }
         }
-        e.routes = AndroidInput.routes(axes);
+        e.routes = AndroidInput.routes(axes, AndroidInput.invertsStickY(vid, pid));
         e.analogTriggers = AndroidInput.hasAnalogTriggers(e.routes);
         e.vendorId = vid;
+        e.productId = pid;
         Map<String, Object> extra = new LinkedHashMap<>();
         extra.put("transport", "android");
         extra.put("android_id", deviceId);
@@ -107,7 +109,8 @@ final class InputRouter {
             return true;
         }
         Entry en = entry(e.getDeviceId(), d);
-        int idx = AndroidInput.buttonForKey(e.getKeyCode(), e.getScanCode(), en.vendorId, en.analogTriggers);
+        int idx = AndroidInput.buttonForKey(e.getKeyCode(), e.getScanCode(), en.vendorId, en.productId,
+                en.analogTriggers);
         if (idx < 0) {
             return false;
         }
@@ -153,7 +156,7 @@ final class InputRouter {
                     hub.button(en.device, Pad.DPAD_DOWN, dir > 0, t);
                 }
             } else {
-                hub.axis(en.device, r.canonicalAxis, AndroidInput.axisValue(v, r.trigger), t);
+                hub.axis(en.device, r.canonicalAxis, AndroidInput.axisValue(r.invert ? -v : v, r.trigger), t);
             }
         }
         return true;

@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.2.1
+
+* GC Bridge: correct button order and stick direction for the Switch 2 GameCube / Pro
+  controller in gamepad mode (Android's generic HID driver numbers the report's buttons B, A,
+  Y, X, R, ZR, Start, ... and the report's stick Y grows upwards). Confirmed by pressing on the
+  GameCube controller.
+* `controllerlog live --adb` gets the same table for these controllers.
+* USB / Bluetooth readers (PC and app): the GameCube's A, B, X, Y bits are the ones named A,
+  B, X, Y, so A is now `south` and B `west` (they were read like a Pro Controller's before).
+
 ## v0.2.0
 
 ### GC Bridge 0.2 (Android)

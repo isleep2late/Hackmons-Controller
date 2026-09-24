@@ -23,6 +23,7 @@ final class AndroidInput {
     static final int VENDOR_NINTENDO = 0x057E;
     static final int VENDOR_MICROSOFT = 0x045E;
     static final int PID_GAMECUBE = 0x2073;
+    static final int PID_PRO2 = 0x2069;
 
     /** Pseudo button indices: the key drives a trigger axis (0 / AXIS_MAX). */
     static final int KEY_LEFT_TRIGGER = 100;
@@ -80,7 +81,14 @@ final class AndroidInput {
      *
      * @param analogTriggers the device reports trigger axes, so BTN_TL2/TR2 keys are ignored
      */
-    static int buttonForKey(int keyCode, int scanCode, int vendorId, boolean analogTriggers) {
+    static int buttonForKey(int keyCode, int scanCode, int vendorId, int productId,
+                            boolean analogTriggers) {
+        if (isSwitch2Standard(vendorId, productId)) {
+            int r = switch2StandardButton(productId, scanCode);
+            if (r != NOT_A_REPORT_BUTTON) {
+                return r;
+            }
+        }
         boolean positional = positionalFace(vendorId);
         switch (scanCode) {
             case BTN_SOUTH:
@@ -192,6 +200,85 @@ final class AndroidInput {
         return -1;
     }
 
+    private static final int NOT_A_REPORT_BUTTON = Integer.MIN_VALUE;
+
+    /** A Switch 2 GameCube / Pro controller in its standard HID gamepad mode (report 0x0A). */
+    static boolean isSwitch2Standard(int vendorId, int productId) {
+        return vendorId == VENDOR_NINTENDO && (productId == PID_GAMECUBE || productId == PID_PRO2);
+    }
+
+    /**
+     * Switch 2 controllers in standard HID mode (what "Start controller" switches on): no kernel
+     * driver knows them, so hid-generic numbers the report's 21 buttons in the report's own
+     * order, 1-16 as BTN_SOUTH.. (0x130..) and 17-21 as BTN_TRIGGER_HAPPY1.. (0x2c0..). That
+     * order is B, A, Y, X, R, ZR, +, RS, down, right, left, up, L, ZL, -, LS, Home, Capture,
+     * GR, GL, C, confirmed by pressing on the NSO GameCube controller (whose R / L triggers sit
+     * in the R / L slots and whose Z is in the ZR slot). Mapped positionally: the GameCube's A
+     * is the bottom button, B the left one.
+     */
+    static int switch2StandardButton(int productId, int scanCode) {
+        int n;
+        if (scanCode >= 0x130 && scanCode <= 0x13f) {
+            n = scanCode - 0x130 + 1;
+        } else if (scanCode >= BTN_TRIGGER_HAPPY1 && scanCode <= BTN_TRIGGER_HAPPY1 + 4) {
+            n = scanCode - BTN_TRIGGER_HAPPY1 + 17;
+        } else {
+            return NOT_A_REPORT_BUTTON;
+        }
+        boolean gc = productId == PID_GAMECUBE;
+        switch (n) {
+            case 1:                                       // B
+                return gc ? Pad.WEST : Pad.SOUTH;
+            case 2:                                       // A
+                return gc ? Pad.SOUTH : Pad.EAST;
+            case 3:                                       // Y
+                return gc ? Pad.NORTH : Pad.WEST;
+            case 4:                                       // X
+                return gc ? Pad.EAST : Pad.NORTH;
+            case 5:                                       // R (GameCube: the trigger's click)
+                return gc ? KEY_RIGHT_TRIGGER : Pad.RIGHT_SHOULDER;
+            case 6:                                       // ZR (GameCube: Z)
+                return gc ? Pad.RIGHT_SHOULDER : KEY_RIGHT_TRIGGER;
+            case 7:
+                return Pad.START;
+            case 8:
+                return Pad.RIGHT_STICK;
+            case 9:
+                return Pad.DPAD_DOWN;
+            case 10:
+                return Pad.DPAD_RIGHT;
+            case 11:
+                return Pad.DPAD_LEFT;
+            case 12:
+                return Pad.DPAD_UP;
+            case 13:                                      // L (GameCube: the trigger's click)
+                return gc ? KEY_LEFT_TRIGGER : Pad.LEFT_SHOULDER;
+            case 14:                                      // ZL (no such button on the GameCube)
+                return gc ? Pad.LEFT_SHOULDER : KEY_LEFT_TRIGGER;
+            case 15:
+                return Pad.BACK;
+            case 16:
+                return Pad.LEFT_STICK;
+            case 17:
+                return Pad.GUIDE;
+            case 18:
+                return Pad.MISC1;
+            case 19:
+                return Pad.RIGHT_PADDLE1;
+            case 20:
+                return Pad.LEFT_PADDLE1;
+            case 21:
+                return Pad.MISC2;
+            default:
+                return -1;
+        }
+    }
+
+    /** The standard report's stick Y grows upwards; Android expects down, so flip it. */
+    static boolean invertsStickY(int vendorId, int productId) {
+        return isSwitch2Standard(vendorId, productId);
+    }
+
     /** BTN_TRIGGER_HAPPY1.. as adb_backend.COMMON_KEYS: paddles, then misc3..misc6. */
     private static int happy(int n) {
         switch (n) {
@@ -222,12 +309,18 @@ final class AndroidInput {
         final int canonicalAxis;   // Pad.LEFT_X.. or -1 for the hat axes
         final boolean trigger;      // 0..1 instead of -1..1
         final boolean hat;          // AXIS_HAT_X / AXIS_HAT_Y: d-pad buttons
+        final boolean invert;       // the device reports this axis the other way round
 
         AxisRoute(int androidAxis, int canonicalAxis, boolean trigger, boolean hat) {
+            this(androidAxis, canonicalAxis, trigger, hat, false);
+        }
+
+        AxisRoute(int androidAxis, int canonicalAxis, boolean trigger, boolean hat, boolean invert) {
             this.androidAxis = androidAxis;
             this.canonicalAxis = canonicalAxis;
             this.trigger = trigger;
             this.hat = hat;
+            this.invert = invert;
         }
     }
 
@@ -246,22 +339,27 @@ final class AndroidInput {
      * BRAKE/GAS); unknown HID pads may put the right stick on RX/RY or RX/RZ.
      */
     static List<AxisRoute> routes(int[] present) {
+        return routes(present, false);
+    }
+
+    /** @param invertY flip both sticks' Y (see {@link #invertsStickY}) */
+    static List<AxisRoute> routes(int[] present, boolean invertY) {
         List<AxisRoute> out = new ArrayList<>();
         if (has(present, MotionEvent.AXIS_X)) {
             out.add(new AxisRoute(MotionEvent.AXIS_X, Pad.LEFT_X, false, false));
         }
         if (has(present, MotionEvent.AXIS_Y)) {
-            out.add(new AxisRoute(MotionEvent.AXIS_Y, Pad.LEFT_Y, false, false));
+            out.add(new AxisRoute(MotionEvent.AXIS_Y, Pad.LEFT_Y, false, false, invertY));
         }
         if (has(present, MotionEvent.AXIS_Z) && has(present, MotionEvent.AXIS_RZ)) {
             out.add(new AxisRoute(MotionEvent.AXIS_Z, Pad.RIGHT_X, false, false));
-            out.add(new AxisRoute(MotionEvent.AXIS_RZ, Pad.RIGHT_Y, false, false));
+            out.add(new AxisRoute(MotionEvent.AXIS_RZ, Pad.RIGHT_Y, false, false, invertY));
         } else if (has(present, MotionEvent.AXIS_RX) && has(present, MotionEvent.AXIS_RY)) {
             out.add(new AxisRoute(MotionEvent.AXIS_RX, Pad.RIGHT_X, false, false));
-            out.add(new AxisRoute(MotionEvent.AXIS_RY, Pad.RIGHT_Y, false, false));
+            out.add(new AxisRoute(MotionEvent.AXIS_RY, Pad.RIGHT_Y, false, false, invertY));
         } else if (has(present, MotionEvent.AXIS_RX) && has(present, MotionEvent.AXIS_RZ)) {
             out.add(new AxisRoute(MotionEvent.AXIS_RX, Pad.RIGHT_X, false, false));
-            out.add(new AxisRoute(MotionEvent.AXIS_RZ, Pad.RIGHT_Y, false, false));
+            out.add(new AxisRoute(MotionEvent.AXIS_RZ, Pad.RIGHT_Y, false, false, invertY));
         }
         if (has(present, MotionEvent.AXIS_LTRIGGER) || has(present, MotionEvent.AXIS_RTRIGGER)) {
             out.add(new AxisRoute(MotionEvent.AXIS_LTRIGGER, Pad.LEFT_TRIGGER, true, false));

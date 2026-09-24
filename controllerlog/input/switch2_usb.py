@@ -173,10 +173,15 @@ def map_trigger(raw: int, zero: int) -> int:
 
 
 B = BUTTON_INDEX
-# (report byte, bit mask) -> canonical button, per model (SDL HandleGameCubeState / HandleSwitchProState).
+# (report byte, bit mask) -> canonical button, per model. Byte 5 holds the Y, X, B, A bits (0x01,
+# 0x02, 0x04, 0x08): on the Pro Controller they are positional (Y left, X top, B bottom, A right)
+# and match SDL's HandleSwitchProState. The GameCube controller puts its *own* Y, X, B and A in
+# those bits (its standard HID report is laid out the same way, confirmed by pressing on the
+# real controller), so positionally Y = north, X = east, B = west, A = south. Z is in the ZR bit
+# (0x80), the R / L trigger clicks in the R / L bits (0x40), as in SDL's HandleGameCubeState.
 BUTTON_BITS: dict[str, tuple[tuple[int, int, int], ...]] = {
     "gamecube": (
-        (5, 0x01, B["west"]), (5, 0x02, B["north"]), (5, 0x04, B["south"]), (5, 0x08, B["east"]),
+        (5, 0x01, B["north"]), (5, 0x02, B["east"]), (5, 0x04, B["west"]), (5, 0x08, B["south"]),
         (5, 0x40, B["misc4"]),            # R fully pressed (click)
         (5, 0x80, B["right_shoulder"]),   # Z
         (6, 0x02, B["start"]), (6, 0x10, B["guide"]), (6, 0x20, B["misc1"]), (6, 0x40, B["misc2"]),
