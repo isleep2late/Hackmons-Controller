@@ -87,6 +87,7 @@ jobs:
     needs: [apk, bundles]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: assets
@@ -96,6 +97,7 @@ jobs:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           name: ${{ github.event.inputs.tag || github.ref_name }}
           prerelease: ${{ github.event.inputs.prerelease == 'true' || github.event.inputs.prerelease == '' }}
+          body_path: CHANGELOG.md
           generate_release_notes: true
           files: |
             assets/apk/*.apk
