@@ -57,15 +57,15 @@ built on Linux). Developers can instead install the package as described below.
 |---|---|
 | SDL3 controller capture, hub, recorder, overlay, viewer, renderer | Tested on Windows 11 with ViGEm virtual pads, and in a real browser |
 | GSE `.gm2` reader/writer | Checked against 18 real GSE v0.6 logs (GB, GBC, Game Boy Player) |
-| Switch 2 **GameCube controller over USB** (`switch2_usb.py`) | Tested with a real controller: init, calibration, 250 Hz stream, sticks, replug. **Button mapping not yet confirmed by pressing** (it follows SDL 3.4's driver) |
+| Switch 2 **GameCube controller over USB** (`switch2_usb.py`) | Tested with a real controller: init, calibration, 250 Hz stream, sticks, replug. Face buttons, Z, triggers and D-pad confirmed through the controller's standard HID report on Android; the Nintendo-report table follows from it |
 | BizHawk `.bk2` writer, GSE → bk2 conversion | Built from BizHawk's source; not yet loaded in a real BizHawk |
 | Virtual controller replay / bridge (ViGEmBus) | Tested on Windows (XInput read-back) |
 | Android capture over adb | Tested only against a simulated adb |
-| **GC Bridge** Android app: `.ctlog` recording, floating overlay, system-wide button capture, USB capture, Bluetooth reader | Builds (Gradle, and without the SDK), 33 JVM unit tests cross-checked against the Python code; **not yet run on a phone** |
+| **GC Bridge** Android app: `.ctlog` recording, floating overlay, system-wide button capture, USB capture, Bluetooth reader | Gamepad mode and the overlay tried on a Galaxy Z TriFold (button order and stick direction fixed in 0.2.1); recording, button capture, USB capture and Bluetooth not yet tried. 35 JVM unit tests cross-checked against the Python code |
 | Switch 2 over Bluetooth LE (`switch2_ble.py`) | Built from protocol research and sniffer captures; **never run against a controller** |
 | BizHawk optimizer (Lua socket bot) | Tested against a model of BizHawk under a real Lua runtime; not against EmuHawk |
 
-There are about 650 Python tests (`pytest`) and 33 Java tests for the app; see [Tests](#tests).
+There are about 650 Python tests (`pytest`) and 35 Java tests for the app; see [Tests](#tests).
 
 ## Quick start (Windows)
 
@@ -244,13 +244,15 @@ pytest -q
 
 ## Open work
 
-1. **Confirm the Switch 2 GameCube buttons over USB**: press every button with
-   `controllerlog switch2 usb` running and check each lands on the right input.
-2. **Try GC Bridge on the phone** (Galaxy Z TriFold), one part at a time:
-   gamepad mode (does Android create a gamepad after the 0x0A switch, how do
-   the buttons and axes map?), Record + Recordings > Share, the overlay, Button
-   capture with a game in front, USB capture (do the sticks and triggers read
-   right?), and the Bluetooth reader. Copy all after each and keep the log.
+1. **Check the Switch 2 GameCube buttons over USB on the PC**: press every
+   button with `controllerlog switch2 usb` running. The table was corrected from
+   the Android test (A = south, B = west, X = east, Y = north) and should now
+   match; report anything that doesn't.
+2. **Try the rest of GC Bridge on the phone** (Galaxy Z TriFold): Record +
+   Recordings > Share, Button capture with a game in front, USB capture (do the
+   sticks, triggers and buttons read right?), and the Bluetooth reader. Copy all
+   after each and keep the log. Also confirm the sticks' left/right direction in
+   gamepad mode (0.2.1 flips only up/down).
 3. **Test the Bluetooth Switch 2 reader on the PC** (`switch2 test`).
 4. **A gamepad for other apps from the Bluetooth reader**: Android never sees
    the controller as a gamepad over BLE; that needs a virtual input device

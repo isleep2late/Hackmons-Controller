@@ -490,8 +490,12 @@ public final class Switch2Protocol {
     }
 
     // (report byte, bit mask, canonical button), USB offsets (report id at 0).
+    // GameCube face bits are the Pro Controller's Y/X/B/A bits carrying the GameCube's own
+    // Y/X/B/A buttons (the standard HID report is laid out that way, confirmed by pressing), so
+    // positionally: Y = north, X = east, B = west, A = south. Z sits in the ZR bit, the trigger
+    // clicks in the R / L bits (as in SDL's HandleGameCubeState).
     private static final int[][] GC_BITS = {
-            {5, 0x01, Pad.WEST}, {5, 0x02, Pad.NORTH}, {5, 0x04, Pad.SOUTH}, {5, 0x08, Pad.EAST},
+            {5, 0x01, Pad.NORTH}, {5, 0x02, Pad.EAST}, {5, 0x04, Pad.WEST}, {5, 0x08, Pad.SOUTH},
             {5, 0x40, Pad.MISC4}, {5, 0x80, Pad.RIGHT_SHOULDER},
             {6, 0x02, Pad.START}, {6, 0x10, Pad.GUIDE}, {6, 0x20, Pad.MISC1}, {6, 0x40, Pad.MISC2},
             {7, 0x01, Pad.DPAD_DOWN}, {7, 0x02, Pad.DPAD_UP}, {7, 0x04, Pad.DPAD_RIGHT},

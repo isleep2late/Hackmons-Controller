@@ -14,9 +14,10 @@ The Android side of Hackmons Controller. One app, four jobs:
 4. **Read the Switch 2 GameCube / Pro controller itself**, over USB (full analog triggers, 250
    reports/s) or, experimentally, over Bluetooth LE (no dongle, no pairing).
 
-**Status: builds and passes its unit tests, not yet run on a phone.** Everything below
-describes what the code does; what Android actually does with it on the Galaxy Z TriFold is
-the next thing to find out. Please copy the app's log (Copy all) after trying each part.
+**Status: gamepad mode and the overlay have been tried on a Galaxy Z TriFold (0.2 showed the
+buttons in the wrong places, fixed in 0.2.1).** Recording, button capture, USB capture and the
+Bluetooth reader still wait for their first test. Please copy the app's log (Copy all) after
+trying each part.
 
 ## Install
 
@@ -98,12 +99,16 @@ logged and shown on the overlay in any app.
   controller (claiming the interface detaches the kernel driver); Stop USB capture releases
   it, and a replug always brings the gamepad back.
 
-The GameCube button mapping follows SDL 3.4's driver (`HandleGameCubeState`): the face bits
-are read positionally like the Pro Controller's, so the GameCube "A" bit lands on `east` and
-the "B" bit on `south` until someone confirms which physical button sets which bit. The same
-mapping is used over USB on the PC, over Bluetooth on the PC and in this app, so a wrong guess
-is at least a consistent one, fixed in one table (`Switch2Protocol.GC_BITS` here,
-`BUTTON_BITS` in `switch2_usb.py`).
+**Button mapping, confirmed on the real controller (gamepad mode).** Android has no kernel
+driver for the Switch 2 pads, so its generic HID driver numbers the standard report's 21
+buttons in the report's own order: B, A, Y, X, R, ZR, Start, RS, D-down, D-right, D-left, D-up,
+L, ZL, Minus, LS, Home, Capture, GR, GL, C. On the GameCube controller the R and L triggers
+report their click in the R / L slots and Z sits in the ZR slot. GC Bridge 0.2.1 maps that
+order positionally (A = bottom, B = left, X = right, Y = top, D-pad, Start, Z, and the trigger
+clicks light the L / R bars) and flips the sticks' Y axis, which the report sends "up =
+positive". The PC's `controllerlog live --adb` uses the same table. The same evidence fixed the
+Nintendo-report (0x05) readers used by USB capture, Bluetooth capture and the PC: the
+GameCube's A, B, X, Y live in the bits of those names, so A is `south` and B is `west`.
 
 ### Bluetooth capture (experimental)
 

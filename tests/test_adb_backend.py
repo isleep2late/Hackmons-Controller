@@ -166,6 +166,27 @@ def test_profile_switch_pro_hid_nintendo_and_swap():
     assert swapped.name.endswith("/swapped")
 
 
+def test_profile_switch2_gamecube_standard_hid():
+    """NSO GameCube controller in the standard HID mode GC Bridge switches on (hid-generic)."""
+    dev = node("switch2_gc_standard_info.txt", "/dev/input/event12")
+    assert dev.is_gamepad and dev.family == "gamecube" and dev.sdl_type_guess == "gamecube"
+    p = build_profile(dev)
+    face = {0x130: "west", 0x131: "south", 0x132: "north", 0x133: "east"}   # B A Y X
+    assert {c: p.buttons[c] for c in face} == face
+    assert p.buttons[0x134] == "right_trigger" and p.buttons[0x135] == "right_shoulder"   # R click, Z
+    assert p.buttons[0x136] == "start"
+    assert [p.buttons[c] for c in (0x138, 0x139, 0x13a, 0x13b)] == ["dpad_down", "dpad_right", "dpad_left", "dpad_up"]
+    assert p.buttons[0x13c] == "left_trigger" and p.buttons[0x13e] == "back"
+    assert p.buttons[0x2c0] == "guide" and p.buttons[0x2c1] == "misc1" and p.buttons[0x2c4] == "misc2"
+    assert p.axes[0x00].target == "left_x" and not p.axes[0x00].invert
+    assert p.axes[0x01].target == "left_y" and p.axes[0x01].invert
+    assert p.axes[0x03].target == "right_x" and not p.axes[0x03].invert
+    assert p.axes[0x05].target == "right_y" and p.axes[0x05].invert
+    # a Switch 1 Pro Controller through hid-nintendo is untouched
+    pro = build_profile(node("switchpro_info.txt", "/dev/input/event8"))
+    assert pro.buttons[0x130] == "south" and 0x2c0 not in pro.buttons
+
+
 def test_profile_xbox_bluetooth():
     p = build_profile(node("xbox_bt_info.txt", "/dev/input/event5"))
     assert p.family == "xbox"

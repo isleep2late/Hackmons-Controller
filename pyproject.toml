@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "controllerlog"
-version = "0.2.0"
+version = "0.2.1"
 description = "Connect, log, display, replay and TAS-edit game controller input (BlueRetro-inspired, GSE/BizHawk compatible)"
 readme = "README.md"
 license = "MIT"

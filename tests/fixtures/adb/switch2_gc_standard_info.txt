@@ -1,0 +1,20 @@
+add device 1: /dev/input/event12
+  bus:      0003
+  vendor    057e
+  product   2073
+  version   0100
+  name:     "Nintendo Co., Ltd. NSO GameCube Controller"
+  location: "usb-a600000.usb-1/input0"
+  id:       ""
+  version:  1.0.1
+  events:
+    KEY (0001): 0130  0131  0132  0133  0134  0135  0136  0137 
+                0138  0139  013a  013b  013c  013d  013e  013f 
+                02c0  02c1  02c2  02c3  02c4 
+    ABS (0003): 0000  : value 2048, min 0, max 4095, fuzz 0, flat 255, resolution 0
+                0001  : value 2048, min 0, max 4095, fuzz 0, flat 255, resolution 0
+                0003  : value 2048, min 0, max 4095, fuzz 0, flat 255, resolution 0
+                0005  : value 2048, min 0, max 4095, fuzz 0, flat 255, resolution 0
+    MSC (0004): 0004 
+  input props:
+    <none>

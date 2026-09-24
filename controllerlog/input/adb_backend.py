@@ -75,7 +75,7 @@ from typing import Any, Sequence
 
 from ..hub import Hub, now_ns
 from ..model import (AXES, AXIS, AXIS_INDEX, AXIS_MAX, AXIS_MIN, BUTTON, BUTTON_INDEX,
-                     FAMILY_GENERIC, FAMILY_PLAYSTATION, FAMILY_SWITCH, FAMILY_XBOX,
+                     FAMILY_GAMECUBE, FAMILY_GENERIC, FAMILY_PLAYSTATION, FAMILY_SWITCH, FAMILY_XBOX,
                      NUM_AXES, NUM_BUTTONS, DeviceInfo, InputEvent)
 from .base import Backend
 
@@ -225,6 +225,7 @@ _SDL_TYPE_GUESS = {
     (VENDOR_SONY, 0x0ba0): "ps4", (VENDOR_SONY, 0x0ce6): "ps5", (VENDOR_SONY, 0x0df2): "ps5",
     (VENDOR_NINTENDO, 0x2009): "switchpro", (VENDOR_NINTENDO, 0x2006): "joyconleft",
     (VENDOR_NINTENDO, 0x2007): "joyconright", (VENDOR_NINTENDO, 0x200e): "joyconpair",
+    (VENDOR_NINTENDO, 0x2069): "switchpro", (VENDOR_NINTENDO, 0x2073): "gamecube",
     (VENDOR_MICROSOFT, 0x028e): "xbox360", (VENDOR_MICROSOFT, 0x028f): "xbox360",
     (VENDOR_MICROSOFT, 0x0291): "xbox360", (VENDOR_MICROSOFT, 0x0719): "xbox360",
 }
@@ -279,6 +280,8 @@ class EvdevDevice:
 
     @property
     def family(self) -> str:
+        if (self.vendor, self.product) == (VENDOR_NINTENDO, SWITCH2_PID_GAMECUBE):
+            return FAMILY_GAMECUBE
         fam = _FAMILY_BY_VENDOR.get(self.vendor)
         if fam:
             return fam
@@ -581,6 +584,48 @@ SONY_KERNEL_EXTRA: dict[int, str] = {
 _SWAP = {"south": "east", "east": "south", "west": "north", "north": "west"}
 _COMPANION_KEYS = frozenset({BTN_LEFT, KEY_BACK, KEY_HOMEPAGE, KEY_MENU, KEY_RECORD})
 
+# Switch 2 controllers in their standard HID gamepad mode (report 0x0A, what the GC Bridge app
+# switches on over USB-C): no kernel driver knows them, so hid-generic numbers the report's 21
+# buttons in the report's own order, 1-16 as BTN_SOUTH.. (0x130..) and 17-21 as
+# BTN_TRIGGER_HAPPY1.. (0x2c0..). Confirmed by pressing on the NSO GameCube controller, whose
+# R / L triggers report their click in the R / L slots and whose Z is in the ZR slot. The
+# report's stick Y grows upwards (Android and evdev expect down), hence the inverted Y axes.
+SWITCH2_PID_PRO, SWITCH2_PID_GAMECUBE = 0x2069, 0x2073
+_SWITCH2_STANDARD_ORDER = ("B", "A", "Y", "X", "R", "ZR", "PLUS", "RSTICK", "DOWN", "RIGHT",
+                           "LEFT", "UP", "L", "ZL", "MINUS", "LSTICK", "HOME", "CAPTURE", "GR",
+                           "GL", "C")
+_SWITCH2_STANDARD_COMMON = {
+    "PLUS": "start", "RSTICK": "right_stick", "DOWN": "dpad_down", "RIGHT": "dpad_right",
+    "LEFT": "dpad_left", "UP": "dpad_up", "MINUS": "back", "LSTICK": "left_stick",
+    "HOME": "guide", "CAPTURE": "misc1", "GR": "right_paddle1", "GL": "left_paddle1", "C": "misc2",
+}
+_SWITCH2_STANDARD_TARGETS = {
+    # positional: the GameCube's A is the bottom button, B the left one; its trigger clicks are
+    # the only trigger information in this report
+    SWITCH2_PID_GAMECUBE: {"B": "west", "A": "south", "Y": "north", "X": "east",
+                           "R": "right_trigger", "ZR": "right_shoulder",
+                           "L": "left_trigger", "ZL": "left_shoulder"},
+    SWITCH2_PID_PRO: {"B": "south", "A": "east", "Y": "west", "X": "north",
+                      "R": "right_shoulder", "ZR": "right_trigger",
+                      "L": "left_shoulder", "ZL": "left_trigger"},
+}
+
+
+def switch2_standard_keys(product: int) -> dict[int, str]:
+    """evdev key code -> canonical button for a Switch 2 pad in standard HID mode."""
+    targets = {**_SWITCH2_STANDARD_COMMON, **_SWITCH2_STANDARD_TARGETS[product]}
+    out = {}
+    for i, label in enumerate(_SWITCH2_STANDARD_ORDER):
+        code = BTN_SOUTH + i if i < 16 else BTN_TRIGGER_HAPPY1 + (i - 16)
+        out[code] = targets[label]
+    return out
+
+
+def is_switch2_standard(dev: "EvdevDevice") -> bool:
+    """A Switch 2 GameCube / Pro pad handled by hid-generic (BTN_C = report button 3)."""
+    return (dev.vendor == VENDOR_NINTENDO and dev.product in _SWITCH2_STANDARD_TARGETS
+            and BTN_C in dev.keys)
+
 
 def _stickiness(a: AbsInfo) -> int:
     """>0: looks like a centred stick axis, <0: looks like a trigger resting at min."""
@@ -628,6 +673,8 @@ def _assign_axes(dev: EvdevDevice, face: str) -> dict[int, AxisMap]:
         right = (ABS_Z, ABS_RZ)    # Android HID gamepad: right stick = Z/Rz
     elif has(ABS_RX, ABS_RY):
         right = (ABS_RX, ABS_RY)
+    elif has(ABS_RX, ABS_RZ):
+        right = (ABS_RX, ABS_RZ)   # Switch 2 standard HID report: X/Y + Rx/Rz
     if trig is None:
         if has(ABS_BRAKE, ABS_GAS):
             trig = (ABS_BRAKE, ABS_GAS)      # Android HID: Brake = LT, Accelerator = RT
@@ -729,7 +776,13 @@ def build_profile(dev: EvdevDevice, override: dict[str, Any] | None = None, *,
     if (ABS_HAT0X not in dev.abs and not dev.keys & dpad_keys
             and all(k in dev.keys for k in happy) and dev.vendor != VENDOR_SONY):
         buttons.update(zip(happy, ("dpad_left", "dpad_right", "dpad_up", "dpad_down")))
+    if is_switch2_standard(dev):
+        buttons.update(switch2_standard_keys(dev.product))
     axes = _assign_axes(dev, face)
+    if is_switch2_standard(dev):
+        for m in axes.values():
+            if m.target in ("left_y", "right_y"):
+                m.invert = not m.invert
     swapped = bool((nintendo_swap and fam == FAMILY_SWITCH) or override.get("swap_ab"))
     if swapped:
         buttons = {c: _SWAP.get(t, t) for c, t in buttons.items()}
