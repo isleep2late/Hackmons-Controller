@@ -35,7 +35,7 @@ jobs:
       - uses: android-actions/setup-android@v3
       - name: Install SDK components
         run: sdkmanager "platforms;android-37" "build-tools;37.0.0"
-      - name: Build (debug-signed: installs like any sideloaded APK)
+      - name: "Build (debug-signed, installs like any sideloaded APK)"
         working-directory: android/gcbridge
         run: |
           chmod +x gradlew
