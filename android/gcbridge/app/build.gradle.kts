@@ -2,6 +2,15 @@ plugins {
     id("com.android.application")
 }
 
+// The overlay draws the same layout files as the PC overlay and video renderer:
+// controllerlog/layouts/*.json, copied into the APK's assets at build time.
+val copyLayouts by tasks.registering(Copy::class) {
+    from(rootProject.file("../../controllerlog/layouts")) {
+        include("*.json")
+    }
+    into(layout.buildDirectory.dir("generated/layouts/layouts"))
+}
+
 android {
     namespace = "com.controllerlog.gcbridge"
     compileSdk = 37
@@ -11,8 +20,8 @@ android {
         applicationId = "com.controllerlog.gcbridge"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1"
+        versionCode = 2
+        versionName = "0.2"
     }
 
     compileOptions {
@@ -26,11 +35,20 @@ android {
             // (skipped when the file isn't there).
             val switch2Py = rootProject.file("../../controllerlog/input/switch2_usb.py")
             it.systemProperty("switch2.py", switch2Py.absolutePath)
+            it.systemProperty("controllerlog.root", rootProject.file("../..").absolutePath)
             // Declared as an input, so editing the Python file re-runs the tests instead of
             // reusing an up-to-date or cached result (files() also tolerates a missing file).
             it.inputs.files(switch2Py)
                 .withPropertyName("switch2Py")
                 .withPathSensitivity(PathSensitivity.NONE)
+        }
+    }
+
+    sourceSets {
+        getByName("main") {
+            // Overlay layouts come from the Python side of the repository (see copyLayouts);
+            // mapping the task's output keeps the dependency implicit.
+            assets.srcDir(copyLayouts.map { it.destinationDir.parentFile })
         }
     }
 
@@ -44,6 +62,10 @@ android {
 
 dependencies {
     testImplementation("junit:junit:4.13.2")
+}
+
+tasks.named("preBuild") {
+    dependsOn(copyLayouts)
 }
 
 tasks.withType<JavaCompile>().configureEach {

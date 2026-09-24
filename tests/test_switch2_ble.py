@@ -117,7 +117,7 @@ EXPECT = {
                     "RSTICK": "right_stick", "L": "left_shoulder", "R": "right_shoulder",
                     "CAPTURE": "misc1", "C": "misc2", "GR": "right_paddle1",
                     "GL": "left_paddle1", **DPAD},
-    ("gamecube", None): {"A": "south", "B": "west", "X": "east", "Y": "north",
+    ("gamecube", None): {"B": "south", "A": "east", "Y": "west", "X": "north",
                          "PLUS": "start", "HOME": "guide", "ZR": "right_shoulder",
                          "ZL": "left_shoulder", "L": "misc3", "R": "misc4",
                          "CAPTURE": "misc1", "C": "misc2", **DPAD},
@@ -734,7 +734,7 @@ def test_backend_model_report_gamecube(monkeypatch):
         dev = b.dev_id
         assert wait_for(lambda: hub.states[dev].axes[AXIS_INDEX["left_trigger"]] == 32767)
         st = hub.states[dev]
-        assert st.buttons[BUTTON_INDEX["south"]] == 1
+        assert st.buttons[BUTTON_INDEX["east"]] == 1                # the "A" bit, as in SDL
         assert st.buttons[BUTTON_INDEX["right_shoulder"]] == 1      # GameCube Z
         assert st.axes[AXIS_INDEX["right_trigger"]] == 0
     finally:

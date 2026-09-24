@@ -13,6 +13,7 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Insets;
+import android.net.Uri;
 import android.hardware.input.InputManager;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
@@ -21,17 +22,24 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowInsets;
+import android.widget.ArrayAdapter;
+import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.RadioGroup;
+import android.widget.SeekBar;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.File;
+import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -49,7 +57,8 @@ import java.util.concurrent.Executors;
  * One screen: start the controller over USB (vendor interface only), then watch what Android
  * makes of it - input devices, key events and joystick axes.
  */
-public class MainActivity extends Activity implements InputManager.InputDeviceListener {
+public class MainActivity extends Activity implements InputManager.InputDeviceListener,
+        InputHub.Listener {
 
     static final String TAG = "GCBridge";
 
@@ -64,6 +73,10 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
     private static final int ACTION_NONE = 0;
     private static final int ACTION_START = 1;
     private static final int ACTION_PEEK = 2;
+    private static final int ACTION_CAPTURE = 3;
+    private static final int REQ_BLE = 10;
+    private static final int REQ_NOTIFICATIONS = 11;
+    private static final long STATUS_INTERVAL_MS = 1000;
 
     private static final int MAX_KEY_HISTORY = 30;
     private static final int MAX_LOG_CHARS = 60_000;
@@ -100,6 +113,33 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
     private Button startButton;
     private Button peekButton;
 
+    // capture / overlay controls
+    private final InputHub hub = InputHub.get();
+    private PadView padPreview;
+    private TextView captureStatus;
+    private Button recordButton;
+    private Button overlayButton;
+    private Button usbCaptureButton;
+    private Button bleButton;
+    private TextView usbStatusView;
+    private TextView bleStatusView;
+    private TextView accessibilityStatus;
+    private Spinner layoutSpinner;
+    private String previewFamily;
+    private String previewLayoutPref;
+    private boolean statusUpdatePending;
+    private final Runnable statusUpdater = () -> {
+        statusUpdatePending = false;
+        refreshCaptureUi();
+    };
+    private final Runnable periodic = new Runnable() {
+        @Override
+        public void run() {
+            refreshCaptureUi();
+            main.postDelayed(this, STATUS_INTERVAL_MS);
+        }
+    };
+
     // Main-thread state.
     private final StringBuilder usbLog = new StringBuilder();
     private final ArrayDeque<String> keyHistory = new ArrayDeque<>();
@@ -132,7 +172,9 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
                 int todo = pendingAction;
                 pendingAction = ACTION_NONE;
                 log("USB permission " + (granted ? "granted" : "DENIED") + " for " + which);
-                if (granted && device != null && todo != ACTION_NONE) {
+                if (granted && device != null && todo == ACTION_CAPTURE) {
+                    startUsbCapture(device);
+                } else if (granted && device != null && todo != ACTION_NONE) {
                     runUsbAction(device, todo);
                 } else if (!granted) {
                     log("Without USB permission the app can't send the init. Tap Start again "
@@ -194,8 +236,10 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
         });
         findViewById(R.id.btn_exit).setOnClickListener(v -> finishAndRemoveTask());
 
+        setUpCaptureControls();
         registerUsbReceiver();
         inputManager.registerInputDeviceListener(this, main);
+        hub.addListener(this);
 
         log("GC Bridge " + appVersion() + " on " + Build.MANUFACTURER + " " + Build.MODEL
                 + ", Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")");
@@ -238,7 +282,21 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        refreshCaptureUi();
+        main.postDelayed(periodic, STATUS_INTERVAL_MS);
+    }
+
+    @Override
+    protected void onPause() {
+        main.removeCallbacks(periodic);
+        super.onPause();
+    }
+
+    @Override
     protected void onDestroy() {
+        hub.removeListener(this);
         unregisterReceiver(usbReceiver);
         inputManager.unregisterInputDeviceListener(this);
         main.removeCallbacksAndMessages(null);
@@ -462,8 +520,12 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
     }
 
     private String appVersion() {
+        return appVersion(this);
+    }
+
+    static String appVersion(Context ctx) {
         try {
-            return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+            return ctx.getPackageManager().getPackageInfo(ctx.getPackageName(), 0).versionName;
         } catch (PackageManager.NameNotFoundException e) {
             return "?";
         }
@@ -494,6 +556,7 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
     @Override
     public void onInputDeviceRemoved(int deviceId) {
         log("InputDevice removed: #" + deviceId);
+        InputRouter.deviceRemoved(deviceId);
         if (deviceId == liveDeviceId) {
             liveDeviceLabel += " (removed)";
             scheduleLiveUpdate();
@@ -505,6 +568,7 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
     public void onInputDeviceChanged(int deviceId) {
         InputDevice d = InputDevice.getDevice(deviceId);
         log("InputDevice changed: " + (d != null ? InputDiagnostics.shortSummary(d) : "#" + deviceId));
+        InputRouter.deviceChanged(deviceId);
         if (deviceId == liveDeviceId) {
             liveDeviceId = Integer.MIN_VALUE; // re-read its axes on the next event
         }
@@ -530,6 +594,7 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
         boolean external = device != null && device.isExternal() && !device.isVirtual();
         if (game || external) {
             onDeviceKey(event, device);
+            InputRouter.onKey(event);
         }
         return game || super.dispatchKeyEvent(event);
     }
@@ -578,6 +643,7 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
         if (event.getActionMasked() == MotionEvent.ACTION_MOVE) {
             onDeviceMotion(event, device);
         }
+        InputRouter.onMotion(event);
         return true;
     }
 
@@ -663,6 +729,330 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
         }
         sb.append("held: ").append(heldKeys.isEmpty() ? "-" : String.join(" ", heldKeys));
         return sb.toString();
+    }
+
+
+    // --- log & overlay controls ----------------------------------------------------------------
+
+    private void setUpCaptureControls() {
+        padPreview = findViewById(R.id.pad_preview);
+        captureStatus = findViewById(R.id.capture_status);
+        recordButton = findViewById(R.id.btn_record);
+        overlayButton = findViewById(R.id.btn_overlay);
+        usbCaptureButton = findViewById(R.id.btn_usb_capture);
+        bleButton = findViewById(R.id.btn_ble);
+        usbStatusView = findViewById(R.id.usb_status);
+        bleStatusView = findViewById(R.id.ble_status);
+        accessibilityStatus = findViewById(R.id.accessibility_status);
+        layoutSpinner = findViewById(R.id.layout_spinner);
+
+        recordButton.setOnClickListener(v -> {
+            if (hub.isRecording()) {
+                CaptureService.send(this, CaptureService.ACTION_RECORD_STOP);
+            } else {
+                askNotificationPermission();
+                CaptureService.send(this, CaptureService.ACTION_RECORD_START);
+            }
+            scheduleStatusUpdate();
+        });
+        findViewById(R.id.btn_marker).setOnClickListener(v ->
+                CaptureService.send(this, CaptureService.ACTION_MARKER));
+        overlayButton.setOnClickListener(v -> {
+            if (CaptureService.overlayShown()) {
+                CaptureService.send(this, CaptureService.ACTION_OVERLAY_HIDE);
+            } else if (!OverlayWindow.canDraw(this)) {
+                log(getString(R.string.overlay_permission_hint));
+                Toast.makeText(this, R.string.overlay_permission_hint, Toast.LENGTH_LONG).show();
+                try {
+                    startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:" + getPackageName())));
+                } catch (RuntimeException e) {
+                    startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION));
+                }
+            } else {
+                askNotificationPermission();
+                CaptureService.send(this, CaptureService.ACTION_OVERLAY_SHOW);
+            }
+            scheduleStatusUpdate();
+        });
+        findViewById(R.id.btn_recordings).setOnClickListener(v -> showRecordings());
+        findViewById(R.id.btn_accessibility).setOnClickListener(v -> {
+            try {
+                startActivity(KeyCaptureService.settingsIntent());
+            } catch (RuntimeException e) {
+                log("Can't open the accessibility settings: " + e);
+            }
+        });
+        usbCaptureButton.setOnClickListener(v -> onUsbCaptureClicked());
+        bleButton.setOnClickListener(v -> onBleClicked());
+
+        String[] names = LayoutStore.names(this);
+        String[] entries = new String[names.length + 1];
+        entries[0] = "auto";
+        System.arraycopy(names, 0, entries, 1, names.length);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, entries);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        layoutSpinner.setAdapter(adapter);
+        String current = prefs.getString(CaptureService.PREF_LAYOUT, "auto");
+        for (int i = 0; i < entries.length; i++) {
+            if (entries[i].equals(current)) {
+                layoutSpinner.setSelection(i);
+            }
+        }
+        layoutSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                String pick = entries[position];
+                if (!pick.equals(prefs.getString(CaptureService.PREF_LAYOUT, "auto"))) {
+                    prefs.edit().putString(CaptureService.PREF_LAYOUT, pick).apply();
+                    if (CaptureService.isRunning()) {
+                        CaptureService.send(MainActivity.this, CaptureService.ACTION_OVERLAY_REFRESH);
+                    }
+                }
+                updatePreviewLayout();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+            }
+        });
+
+        SeekBar size = findViewById(R.id.overlay_size);
+        size.setProgress(Math.round((prefs.getFloat(OverlayWindow.PREF_SCALE, OverlayWindow.DEFAULT_SCALE) - 0.15f) * 100));
+        SeekBar alpha = findViewById(R.id.overlay_alpha);
+        alpha.setProgress(Math.round((prefs.getFloat(OverlayWindow.PREF_ALPHA, OverlayWindow.DEFAULT_ALPHA) - 0.2f) * 100));
+        SeekBar.OnSeekBarChangeListener seek = new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
+                if (!fromUser) {
+                    return;
+                }
+                if (bar == size) {
+                    prefs.edit().putFloat(OverlayWindow.PREF_SCALE, 0.15f + progress / 100f).apply();
+                } else {
+                    prefs.edit().putFloat(OverlayWindow.PREF_ALPHA, 0.2f + progress / 100f).apply();
+                }
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar bar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar bar) {
+                if (CaptureService.overlayShown()) {
+                    CaptureService.send(MainActivity.this, CaptureService.ACTION_OVERLAY_REFRESH);
+                }
+            }
+        };
+        size.setOnSeekBarChangeListener(seek);
+        alpha.setOnSeekBarChangeListener(seek);
+        updatePreviewLayout();
+    }
+
+    private void askNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS},
+                    REQ_NOTIFICATIONS);
+        }
+    }
+
+    private void onUsbCaptureClicked() {
+        if (CaptureService.usbCapturing()) {
+            CaptureService.send(this, CaptureService.ACTION_USB_CAPTURE_STOP);
+            scheduleStatusUpdate();
+            return;
+        }
+        UsbDevice device = Switch2Usb.findController(usb);
+        if (device == null) {
+            log("USB capture: no Switch 2 GameCube / Pro controller found on USB.");
+            return;
+        }
+        if (busy) {
+            log("Busy; wait for the current USB operation to finish.");
+            return;
+        }
+        if (!usb.hasPermission(device)) {
+            requestUsbPermission(device, ACTION_CAPTURE);
+            return;
+        }
+        startUsbCapture(device);
+    }
+
+    private void startUsbCapture(UsbDevice device) {
+        askNotificationPermission();
+        Intent i = CaptureService.intent(this, CaptureService.ACTION_USB_CAPTURE_START)
+                .putExtra(CaptureService.EXTRA_USB_DEVICE, device);
+        CaptureService.send(this, i);
+        scheduleStatusUpdate();
+    }
+
+    private void onBleClicked() {
+        if (CaptureService.bleActive()) {
+            CaptureService.send(this, CaptureService.ACTION_BLE_STOP);
+            scheduleStatusUpdate();
+            return;
+        }
+        if (!Switch2Ble.hasBluetoothLe(this)) {
+            log(getString(R.string.ble_unsupported));
+            return;
+        }
+        List<String> missing = Switch2Ble.missingPermissions(this);
+        if (!missing.isEmpty()) {
+            requestPermissions(missing.toArray(new String[0]), REQ_BLE);
+            return;
+        }
+        askNotificationPermission();
+        CaptureService.send(this, CaptureService.ACTION_BLE_START);
+        scheduleStatusUpdate();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQ_BLE) {
+            if (Switch2Ble.hasPermissions(this)) {
+                CaptureService.send(this, CaptureService.ACTION_BLE_START);
+            } else {
+                log("Bluetooth permission denied; the Bluetooth reader can't scan.");
+            }
+        }
+        scheduleStatusUpdate();
+    }
+
+    private void showRecordings() {
+        List<File> files = RecordingStore.list(this);
+        if (files.isEmpty()) {
+            new AlertDialog.Builder(this).setTitle(R.string.recordings_title)
+                    .setMessage(getString(R.string.recordings_none) + "\n\n" + getString(R.string.recordings_where))
+                    .setPositiveButton(android.R.string.ok, null).show();
+            return;
+        }
+        String[] labels = new String[files.size()];
+        for (int i = 0; i < labels.length; i++) {
+            labels[i] = RecordingStore.describe(files.get(i));
+        }
+        new AlertDialog.Builder(this).setTitle(R.string.recordings_title)
+                .setItems(labels, (d, which) -> recordingActions(files.get(which)))
+                .setNegativeButton(android.R.string.cancel, null).show();
+    }
+
+    private void recordingActions(File f) {
+        String[] actions = {getString(R.string.recordings_share), getString(R.string.recordings_export),
+                getString(R.string.recordings_delete)};
+        new AlertDialog.Builder(this).setTitle(f.getName())
+                .setMessage(getString(R.string.recordings_where))
+                .setItems(actions, (d, which) -> {
+                    if (which == 0) {
+                        Intent send = new Intent(Intent.ACTION_SEND)
+                                .setType("application/octet-stream")
+                                .putExtra(Intent.EXTRA_STREAM, RecordingStore.shareUri(f))
+                                .putExtra(Intent.EXTRA_SUBJECT, f.getName())
+                                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        startActivity(Intent.createChooser(send, f.getName()));
+                    } else if (which == 1) {
+                        try {
+                            Uri uri = RecordingStore.exportToDownloads(this, f);
+                            log("Copied to Downloads/" + RecordingStore.DOWNLOADS_SUBDIR + "/" + f.getName()
+                                    + " (" + uri + ")");
+                            Toast.makeText(this, "Downloads/" + RecordingStore.DOWNLOADS_SUBDIR + "/" + f.getName(),
+                                    Toast.LENGTH_LONG).show();
+                        } catch (IOException | RuntimeException e) {
+                            log("ERROR copying to Downloads: " + e);
+                        }
+                    } else if (f.equals(hub.recordingFile())) {
+                        log("Stop the recording before deleting it.");
+                    } else if (f.delete()) {
+                        log("Deleted " + f.getName());
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, null).show();
+    }
+
+    /** Preview and overlay layout for the active controller (or the forced layout). */
+    private void updatePreviewLayout() {
+        InputHub.Device d = hub.activeDevice();
+        String family = d != null ? d.family : Pad.FAMILY_GENERIC;
+        String pref = prefs.getString(CaptureService.PREF_LAYOUT, "auto");
+        if (family.equals(previewFamily) && pref.equals(previewLayoutPref) && padPreview.getLayout() != null) {
+            return;
+        }
+        previewFamily = family;
+        previewLayoutPref = pref;
+        padPreview.setLayout(LayoutStore.pick(this, pref, family));
+        if (d != null) {
+            padPreview.setState(d.state);
+        }
+    }
+
+    private void scheduleStatusUpdate() {
+        if (!statusUpdatePending) {
+            statusUpdatePending = true;
+            main.postDelayed(statusUpdater, 50);
+        }
+    }
+
+    private void refreshCaptureUi() {
+        if (captureStatus == null) {
+            return;
+        }
+        updatePreviewLayout();
+        StringBuilder sb = new StringBuilder();
+        if (hub.isRecording()) {
+            long s = hub.recordingDurationNs() / 1_000_000_000L;
+            File f = hub.recordingFile();
+            sb.append(String.format(Locale.ROOT, "RECORDING %d:%02d  %d rows  %s\n", s / 60, s % 60,
+                    hub.recordingRows(), f != null ? f.getName() : ""));
+        } else {
+            sb.append("Not recording\n");
+        }
+        List<InputHub.Device> devices = hub.connectedDevices();
+        if (devices.isEmpty()) {
+            sb.append("No controller seen yet");
+        } else {
+            for (InputHub.Device d : devices) {
+                sb.append(d == hub.activeDevice() ? "* " : "  ").append(d.shortName())
+                        .append(" [").append(d.family).append(", ").append(d.backend).append("] ")
+                        .append(d.inputEvents).append(" events\n  ").append(d.state).append('\n');
+            }
+        }
+        String err = hub.lastError();
+        if (err != null) {
+            sb.append("ERROR ").append(err);
+        }
+        captureStatus.setText(sb.toString().trim());
+        recordButton.setText(hub.isRecording() ? R.string.btn_stop_record : R.string.btn_record);
+        overlayButton.setText(CaptureService.overlayShown() ? R.string.btn_overlay_hide : R.string.btn_overlay_show);
+        usbCaptureButton.setText(CaptureService.usbCapturing() ? R.string.btn_usb_capture_stop
+                : R.string.btn_usb_capture_start);
+        usbStatusView.setText("USB capture: " + CaptureService.usbStatus());
+        bleButton.setText(CaptureService.bleActive() ? R.string.btn_ble_stop : R.string.btn_ble_start);
+        bleStatusView.setText("Bluetooth: " + CaptureService.bleStatus());
+        if (KeyCaptureService.isConnected()) {
+            accessibilityStatus.setText(R.string.accessibility_on);
+        } else if (KeyCaptureService.isEnabledInSettings(this)) {
+            accessibilityStatus.setText(R.string.accessibility_enabled_not_connected);
+        } else {
+            accessibilityStatus.setText(R.string.accessibility_off);
+        }
+    }
+
+    // --- hub listener (any thread) --------------------------------------------------------------
+
+    @Override
+    public void onInput(InputHub.Device device) {
+        if (padPreview != null && device == hub.activeDevice()) {
+            padPreview.setState(device.state);
+        }
+        main.post(this::scheduleStatusUpdate);
+    }
+
+    @Override
+    public void onStatus() {
+        main.post(this::scheduleStatusUpdate);
     }
 
     // --- layout --------------------------------------------------------------------------------

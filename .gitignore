@@ -11,3 +11,4 @@ vendor/
 recordings/
 *.ctlog
 *.ctlog.gz
+!tests/fixtures/**/*.ctlog

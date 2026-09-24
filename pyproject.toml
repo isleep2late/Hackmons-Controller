@@ -4,9 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "controllerlog"
-version = "0.1.0"
+version = "0.2.0"
 description = "Connect, log, display, replay and TAS-edit game controller input (BlueRetro-inspired, GSE/BizHawk compatible)"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.14"  # compression.zstd (GSE .gm2 logs, bk2 save RAM)
 dependencies = [
     "aiohttp>=3.9",
