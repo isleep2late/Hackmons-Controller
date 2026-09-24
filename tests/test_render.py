@@ -254,8 +254,11 @@ def test_history_bar_in_right_row(layout):
     t2, b2 = hp.row_span("east")
     assert not near(rgb(img, x, (t2 + b2) / 2), (0x00, 0xc0, 0x00), 60)
     assert not near(rgb(img, hp.x_for(1500 * MS, now), (top + bottom) / 2), (0x00, 0xc0, 0x00), 60)
-    # 5 ms tap still visible (minimum 1 px), trigger ramp shows in the LT row past the threshold
-    assert near(rgb(img, hp.x_for(1212 * MS, now), sum(hp.row_span("east")) / 2), ACTIVE, 90)
+    # 5 ms tap still visible (minimum 1 px), trigger ramp shows in the LT row past the threshold.
+    # The 1 px bar can straddle two output pixels after the LANCZOS downscale (Pillow-version
+    # dependent), so accept it in either neighbour.
+    xt, yt = hp.x_for(1212 * MS, now), sum(hp.row_span("east")) / 2
+    assert any(near(rgb(img, xt + dx, yt), ACTIVE, 90) for dx in (-1, 0, 1))
     lt = hp.row_span("left_trigger")
     assert near(rgb(img, hp.x_for(600 * MS, now), sum(lt) / 2), ACTIVE)
 

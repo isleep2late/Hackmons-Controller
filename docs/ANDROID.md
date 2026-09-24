@@ -44,15 +44,21 @@ Notes:
 * A hat-based D-pad (DS4, DualSense, Xbox) is read from `ABS_HAT0X/Y`, so the
   D-pad works, which accessibility-service approaches can't manage (see below).
 
-## Why not an Android app?
+## The GC Bridge app
 
-| Approach | Verdict |
-|---|---|
-| AccessibilityService key filter | Sees buttons only. No sticks, no analog triggers, and **no D-pad** on DS4/DualSense/Xbox pads (Android converts their hat D-pad inside the focused app). Useless for Game Boy runs. |
-| Accessibility motion events (Android 14+) | *Consumes* the events, so the game stops receiving them. |
-| Overlay window that takes focus | Steals input from the game. |
-| Shizuku / ADB-started helper reading `/dev/input` | Works, and is what a future native app would use. Same technique as the ADB capture above, with an on-phone overlay (`TYPE_APPLICATION_OVERLAY`, not focusable, opacity ≤ 0.8). |
-| Custom Bluetooth host stack (BlueRetro-style) | Not possible without root. Classic L2CAP sockets and the HID host API are system-only. |
+[android/README.md](../android/README.md) describes the app. In short, it logs input on the
+phone to `.ctlog`, shows a floating overlay, and reads the Switch 2 GameCube / Pro controller
+over USB or (experimentally) Bluetooth LE. What each approach on Android can and can't see:
+
+| Approach | Used by GC Bridge for | Limits |
+|---|---|---|
+| The app's own screen in front | everything: buttons, sticks, triggers, hat D-pads, of any controller Android supports | only while GC Bridge is the focused app |
+| AccessibilityService key filter ("Button capture") | buttons system-wide, while a game is in front | no sticks, no analog triggers, and **no D-pad** on DS4/DualSense/Xbox pads (Android converts their hat D-pad inside the focused app) |
+| Accessibility motion events (Android 14+) | not used | *consumes* the events, so the game stops receiving them |
+| Overlay window that takes focus | not used | would steal input from the game; GC Bridge's overlay is not focusable |
+| Reading the controller itself over USB / BLE ("USB capture", "Bluetooth capture") | full input, in the background | only Switch 2 controllers; Android has no gamepad for it while GC Bridge holds it |
+| Shizuku / ADB-started helper reading `/dev/input` | not yet | would give system-wide sticks without a PC, same technique as the ADB capture above |
+| Custom Bluetooth host stack (BlueRetro-style) | no | not possible without root: classic L2CAP sockets and the HID host API are system-only |
 
 **Showing the overlay on the phone:** start `controllerlog live --host 0.0.0.0`
 on the PC and open `http://<pc-ip>:8765/` in the phone's browser, or in a

@@ -2,6 +2,7 @@ package com.controllerlog.gcbridge;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -16,6 +17,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -201,5 +203,223 @@ public class Switch2ProtocolTest {
             out.add(b);
         }
         return out;
+    }
+
+    // --- report parsing, calibration and BLE builders vs. the Python implementation ----------
+
+    private static java.util.Map<String, Object> vectors() throws IOException {
+        Path root = TestFiles.root();
+        assumeTrue("repository root not available", root != null);
+        Path f = root.resolve("tests/fixtures/switch2/java_vectors.json");
+        assumeTrue("java_vectors.json missing (run make_java_vectors.py)", Files.isRegularFile(f));
+        return Json.asObject(Json.parse(TestFiles.read(f)));
+    }
+
+    private static Switch2Protocol.Calibration calibration(java.util.Map<String, Object> c) {
+        Switch2Protocol.Calibration cal = new Switch2Protocol.Calibration();
+        cal.left = stick(Json.asObject(c.get("left")));
+        cal.right = stick(Json.asObject(c.get("right")));
+        List<Object> tz = Json.asArray(c.get("trigger_zero"));
+        cal.triggerZeroLeft = ((Number) tz.get(0)).intValue();
+        cal.triggerZeroRight = ((Number) tz.get(1)).intValue();
+        return cal;
+    }
+
+    private static Switch2Protocol.StickCal stick(java.util.Map<String, Object> s) {
+        return new Switch2Protocol.StickCal(axis(Json.asObject(s.get("x"))), axis(Json.asObject(s.get("y"))));
+    }
+
+    private static Switch2Protocol.AxisCal axis(java.util.Map<String, Object> a) {
+        return new Switch2Protocol.AxisCal((int) Json.num(a, "neutral", 0), (int) Json.num(a, "below", 0),
+                (int) Json.num(a, "above", 0));
+    }
+
+    private static int[] ints(Object v) {
+        List<Object> l = Json.asArray(v);
+        int[] out = new int[l.size()];
+        for (int i = 0; i < out.length; i++) {
+            out[i] = ((Number) l.get(i)).intValue();
+        }
+        return out;
+    }
+
+    @Test
+    public void usbReportsDecodeLikeSwitch2UsbPy() throws IOException {
+        List<Object> cases = Json.asArray(vectors().get("usb_reports"));
+        int[] buttons = new int[Pad.NUM_BUTTONS];
+        int[] axes = new int[Pad.NUM_AXES];
+        for (Object o : cases) {
+            java.util.Map<String, Object> c = Json.asObject(o);
+            byte[] report = TestFiles.hex((String) c.get("report"));
+            String model = (String) c.get("model");
+            assertTrue(Switch2Protocol.parseInputReport(model, report, 0, report.length,
+                    calibration(Json.asObject(c.get("calibration"))), Switch2Protocol.DEFAULT_DEADZONE,
+                    buttons, axes));
+            assertArrayEquals(model + " buttons " + c.get("report"), ints(c.get("buttons")), buttons);
+            assertArrayEquals(model + " axes " + c.get("report"), ints(c.get("axes")), axes);
+        }
+        assertTrue(cases.size() >= 10);
+    }
+
+    @Test
+    public void bleReportIsTheUsbReportWithoutTheIdByte() throws IOException {
+        List<Object> cases = Json.asArray(vectors().get("ble_reports"));
+        int[] buttons = new int[Pad.NUM_BUTTONS];
+        int[] axes = new int[Pad.NUM_AXES];
+        for (Object o : cases) {
+            java.util.Map<String, Object> c = Json.asObject(o);
+            byte[] data = TestFiles.hex((String) c.get("data"));
+            byte[] withId = new byte[data.length + 1];
+            withId[0] = (byte) Switch2Protocol.FORMAT_NINTENDO;
+            System.arraycopy(data, 0, withId, 1, data.length);
+            String model = (String) c.get("model");
+            assertTrue(Switch2Protocol.parseInputReport(model, withId, 0, withId.length,
+                    Switch2Protocol.Calibration.defaults(model), Switch2Protocol.DEFAULT_DEADZONE,
+                    buttons, axes));
+            assertArrayEquals(model + " buttons", ints(c.get("buttons")), buttons);
+            int[] want = ints(c.get("axes"));
+            for (int i = 0; i < want.length; i++) {
+                // the Python BLE reader rounds in floating point and negates instead of
+                // complementing the Y axes; agree within 4 LSB of 32767
+                assertTrue(model + " axis " + i + ": " + axes[i] + " vs " + want[i],
+                        Math.abs(axes[i] - want[i]) <= 4);
+            }
+        }
+    }
+
+    @Test
+    public void nonInputReportsAreRejected() {
+        int[] buttons = new int[Pad.NUM_BUTTONS];
+        int[] axes = new int[Pad.NUM_AXES];
+        byte[] r = new byte[64];
+        r[0] = 0x0A;
+        assertFalse(Switch2Protocol.parseInputReport("gamecube", r, 0, 64,
+                Switch2Protocol.Calibration.defaults("gamecube"), 0.03, buttons, axes));
+        r[0] = 0x05;
+        assertFalse(Switch2Protocol.parseInputReport("gamecube", r, 0, 63,
+                Switch2Protocol.Calibration.defaults("gamecube"), 0.03, buttons, axes));
+        assertTrue(Switch2Protocol.parseInputReport("gamecube", r, 0, 64,
+                Switch2Protocol.Calibration.defaults("gamecube"), 0.03, buttons, axes));
+    }
+
+    @Test
+    public void calibrationFromFlashMatchesPython() throws IOException {
+        java.util.Map<String, Object> v = Json.asObject(vectors().get("usb_calibration"));
+        java.util.Map<String, Object> flash = Json.asObject(v.get("flash"));
+        Switch2Protocol.Calibration cal = Switch2Protocol.readCalibration(address -> {
+            Object hex = flash.get(String.format(Locale.ROOT, "0x%X", address));
+            return hex == null ? null : TestFiles.hex((String) hex);
+        }, (String) v.get("model"));
+        java.util.Map<String, Object> want = Json.asObject(v.get("expected"));
+        assertEquals(want.get("serial"), cal.serial);
+        assertEquals(want.get("source"), cal.source);
+        assertEquals((int) Json.num(Json.asObject(Json.asObject(want.get("left")).get("x")), "neutral", 0), cal.left.x.neutral);
+        assertEquals((int) Json.num(Json.asObject(Json.asObject(want.get("left")).get("y")), "below", 0), cal.left.y.below);
+        assertEquals((int) Json.num(Json.asObject(Json.asObject(want.get("right")).get("x")), "above", 0), cal.right.x.above);
+        assertEquals(((Number) Json.asArray(want.get("trigger_zero")).get(0)).intValue(), cal.triggerZeroLeft);
+        assertEquals(((Number) Json.asArray(want.get("trigger_zero")).get(1)).intValue(), cal.triggerZeroRight);
+        // defaults
+        java.util.Map<String, Object> defaults = Json.asObject(v.get("defaults"));
+        for (String model : new String[]{"gamecube", "pro"}) {
+            java.util.Map<String, Object> d = Json.asObject(defaults.get(model));
+            Switch2Protocol.Calibration c = Switch2Protocol.Calibration.defaults(model);
+            assertEquals((int) Json.num(Json.asObject(Json.asObject(d.get("left")).get("x")), "below", 0), c.left.x.below);
+            assertEquals((int) Json.num(Json.asObject(Json.asObject(d.get("right")).get("y")), "above", 0), c.right.y.above);
+        }
+        // erased and unreadable flash -> defaults
+        Switch2Protocol.Calibration none = Switch2Protocol.readCalibration(address -> null, "gamecube");
+        assertEquals("defaults", none.source);
+        assertEquals(1225, none.left.x.below);
+    }
+
+    @Test
+    public void usbCommandBytesMatchPython() throws IOException {
+        java.util.Map<String, Object> cmds = Json.asObject(vectors().get("usb_commands"));
+        java.util.Map<String, Object> flash = Json.asObject(cmds.get("flash_read"));
+        for (java.util.Map.Entry<String, Object> e : flash.entrySet()) {
+            int addr = Integer.parseInt(e.getKey().substring(2), 16);
+            assertArrayEquals(e.getKey(), TestFiles.hex((String) e.getValue()), Switch2Protocol.flashReadCommand(addr));
+        }
+        java.util.Map<String, Object> led = Json.asObject(cmds.get("led"));
+        for (java.util.Map.Entry<String, Object> e : led.entrySet()) {
+            assertArrayEquals("led " + e.getKey(), TestFiles.hex((String) e.getValue()),
+                    Switch2Protocol.ledCommand(Integer.parseInt(e.getKey())));
+        }
+    }
+
+    @Test
+    public void bleCommandBytesMatchPython() throws IOException {
+        java.util.Map<String, Object> cmds = Json.asObject(vectors().get("ble_commands"));
+        for (Object o : Json.asArray(cmds.get("memory_read"))) {
+            java.util.Map<String, Object> c = Json.asObject(o);
+            int addr = Integer.parseInt(((String) c.get("address")).substring(2), 16);
+            assertArrayEquals((String) c.get("address"), TestFiles.hex((String) c.get("hex")),
+                    Switch2Protocol.buildMemoryRead(addr, (int) Json.num(c, "length", 0)));
+        }
+        java.util.Map<String, Object> leds = Json.asObject(cmds.get("player_leds"));
+        for (java.util.Map.Entry<String, Object> e : leds.entrySet()) {
+            assertArrayEquals("leds " + e.getKey(), TestFiles.hex((String) e.getValue()),
+                    Switch2Protocol.buildPlayerLeds(Integer.parseInt(e.getKey())));
+        }
+        assertArrayEquals(TestFiles.hex((String) cmds.get("feature_set_mask")),
+                Switch2Protocol.buildFeatureCommand(Switch2Protocol.SUB_FEATURE_SET_MASK, Switch2Protocol.DEFAULT_FEATURES));
+        assertArrayEquals(TestFiles.hex((String) cmds.get("feature_enable")),
+                Switch2Protocol.buildFeatureCommand(Switch2Protocol.SUB_FEATURE_ENABLE, Switch2Protocol.DEFAULT_FEATURES));
+        assertArrayEquals(TestFiles.hex((String) cmds.get("rate_descriptor")), Switch2Protocol.BLE_RATE_VALUE);
+        java.util.Map<String, Object> uuids = Json.asObject(vectors().get("ble_uuids"));
+        assertEquals(uuids.get("service"), Switch2Protocol.BLE_SERVICE);
+        assertEquals(uuids.get("input_common"), Switch2Protocol.BLE_INPUT_COMMON);
+        assertEquals(uuids.get("command"), Switch2Protocol.BLE_COMMAND);
+        assertEquals(uuids.get("command_response"), Switch2Protocol.BLE_COMMAND_RESPONSE);
+        assertEquals(uuids.get("rate_descriptor"), Switch2Protocol.BLE_RATE_DESCRIPTOR);
+        java.util.Map<String, Object> models = Json.asObject(uuids.get("models"));
+        for (String key : new String[]{"gamecube", "pro"}) {
+            java.util.Map<String, Object> m = Json.asObject(models.get(key));
+            int pid = (int) Json.num(m, "product_id", 0);
+            assertEquals(key, Switch2Protocol.modelKey(pid));
+            assertEquals(m.get("input"), Switch2Protocol.bleModelInputUuid(pid));
+            assertEquals(m.get("ext_response"), Switch2Protocol.bleModelResponseUuid(pid));
+        }
+    }
+
+    @Test
+    public void bleAdvertisementsAndResponsesParseLikePython() throws IOException {
+        for (Object o : Json.asArray(vectors().get("ble_manufacturer_data"))) {
+            java.util.Map<String, Object> c = Json.asObject(o);
+            Switch2Protocol.Advertisement adv = Switch2Protocol.parseManufacturerData(
+                    TestFiles.hex((String) c.get("payload")));
+            java.util.Map<String, Object> want = Json.asObject(c.get("expected"));
+            if (want == null) {
+                assertNull((String) c.get("payload"), adv);
+                continue;
+            }
+            assertNotNull((String) c.get("payload"), adv);
+            assertEquals((int) Json.num(want, "product_id", 0), adv.productId);
+            assertEquals(want.get("model"), adv.model);
+            assertEquals(want.get("wake"), adv.wake);
+            assertEquals(want.get("host_address"), adv.hostAddress);
+            assertEquals(want.get("pairing_mode"), adv.pairingMode);
+        }
+        for (Object o : Json.asArray(vectors().get("ble_command_responses"))) {
+            java.util.Map<String, Object> c = Json.asObject(o);
+            Switch2Protocol.CommandResponse r = Switch2Protocol.parseCommandResponse(
+                    TestFiles.hex((String) c.get("data")));
+            java.util.Map<String, Object> want = Json.asObject(c.get("expected"));
+            if (want == null) {
+                assertNull(r);
+                continue;
+            }
+            assertNotNull(r);
+            assertEquals((int) Json.num(want, "cmd", -1), r.cmd);
+            assertEquals((int) Json.num(want, "sub", -1), r.sub);
+            assertEquals((int) Json.num(want, "ack", -1), r.ack);
+            assertArrayEquals(TestFiles.hex((String) want.get("payload")), r.payload);
+            java.util.Map<String, Object> mem = Json.asObject(c.get("memory"));
+            if (mem != null) {
+                assertEquals(Integer.parseInt(((String) mem.get("address")).substring(2), 16),
+                        Switch2Protocol.memoryReadAddress(r));
+                assertArrayEquals(TestFiles.hex((String) mem.get("data")), Switch2Protocol.memoryReadData(r));
+            }
+        }
     }
 }

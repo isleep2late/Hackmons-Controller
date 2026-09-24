@@ -1,163 +1,183 @@
 # GC Bridge (Android)
 
-A small test app for one idea: can an Android phone use the **NSO GameCube controller for
-Switch 2** (USB `057E:2073`) or the **Switch 2 Pro Controller** (`057E:2069`) as a normal
-gamepad in every game, with no root?
+The Android side of Hackmons Controller. One app, four jobs:
 
-The controller only sends input after it gets an init sequence on its vendor USB interface
-(interface 1, bulk endpoints). Linux (and so Android) should already bind its HID interface
-(interface 0) to the generic HID driver. GC Bridge sends the init over interface 1 with the
-Android USB host API. It asks for the **standard HID gamepad report (id 0x0A)** instead of
-Nintendo's vendor report (0x05), so the kernel should turn the stream into a regular gamepad.
-It never claims interface 0, except in the optional "Peek" debug action.
+1. **Log controller input on the phone** to the same `.ctlog` format the PC tools use, so a
+   recording made on the phone opens in `controllerlog view`, `stats`, `render`, `convert` and
+   `edit` like one made on the PC.
+2. **Show a floating controller overlay** ("display over other apps") whose buttons light up as
+   you press them, movable and collapsible, drawn from the same layout files as the PC overlay
+   (Xbox, PlayStation, Switch, GameCube, Game Boy, GBA, generic).
+3. **Make the Switch 2 GameCube / Pro controller work over USB-C** as a normal Android gamepad
+   (the original GC Bridge idea: it sends the controller's init sequence and asks for the
+   standard HID report).
+4. **Read the Switch 2 GameCube / Pro controller itself**, over USB (full analog triggers, 250
+   reports/s) or, experimentally, over Bluetooth LE (no dongle, no pairing).
 
-**Status: not tested on a phone yet.** The USB protocol was verified on Windows with a real
-GameCube controller (see `controllerlog/input/switch2_usb.py`), including switching live
-between the 0x05 and 0x0A streams. What Android does with the 0x0A stream is exactly what this
-app is meant to find out.
-
-## What the app does
-
-- **Start controller** runs automatically when the controller is plugged in (if you let GC
-  Bridge open for it), or when you tap the button. It:
-  1. opens the device and claims the vendor interface (class 0xFF),
-  2. reads the serial number from flash (a sanity check),
-  3. sends the 10 init commands (the 9th one sets the report format),
-  4. sets player LED 1,
-  5. releases the interface and closes the connection.
-
-  Every command and reply is logged in hex, on screen and in Logcat.
-- **Report format**: "Standard gamepad (0x0A)" is the default. "Nintendo/SDL format (0x05)"
-  is only for debugging, because the kernel ignores that vendor report.
-- **Input devices** lists every Android input device: name, descriptor, vendor:product,
-  sources (GAMEPAD / JOYSTICK / DPAD / KEYBOARD...), axis ranges and which gamepad keys it
-  reports. The list updates when devices are added, removed or changed, and those events are
-  also written to the log.
-- **Live gamepad input** shows every axis of the last-used gamepad (X, Y, Z, RX, RY, RZ,
-  HAT_X/Y, LTRIGGER, RTRIGGER, BRAKE, GAS, plus any others the device has) with 2 decimals,
-  the motion event rate, and the buttons held down.
-- **Key events** shows the last 30 key presses, each with its Android key code and Linux scan
-  code. For codes in the gamepad range it also guesses which HID button number (1-21) was
-  pressed.
-- Gamepad keys are captured by the app, so B/BACK can't close it while you test. To leave,
-  use the phone's own back gesture or the **Exit** button.
-- **Copy all** copies the status, log, events and device list to the clipboard so you can
-  paste them somewhere.
-- **Peek HID reports** (debug) claims the HID interface for 2 seconds and prints the raw
-  reports. It shows whether the controller is streaming at all, and in which format. This
-  detaches the kernel HID driver while it runs, so the gamepad disappears for those 2 seconds.
-  Android should reattach the driver when Peek releases the interface; if the gamepad doesn't
-  come back in **Input devices**, unplug and replug the controller.
-
-## Build
-
-The build needs JDK 21 and the Android SDK (platform android-37.0, build-tools 37.0.0). Both
-are already on this PC, inside the Claude desktop app's private storage.
-
-```powershell
-cd android\gcbridge   # from the repository root
-$env:JAVA_HOME    = "$env:USERPROFILE\Android\jdk-21"   # any JDK 21
-$env:ANDROID_HOME = "$env:USERPROFILE\Android\Sdk"
-.\gradlew.bat assembleDebug            # -> app\build\outputs\apk\debug\app-debug.apk
-.\gradlew.bat testDebugUnitTest        # JVM unit tests for the command bytes
-.\gradlew.bat lintDebug                # optional
-.\gradlew.bat --stop                   # stop the Gradle daemon when you're done
-```
-
-`local.properties` (not meant for version control) holds `sdk.dir` for this PC. Versions:
-Android Gradle Plugin 9.4.1, Gradle 9.7.1 (wrapper), compileSdk 37, targetSdk 36, minSdk 29.
-The code is plain Java with framework Views and has no library dependencies (only JUnit for
-the tests).
-
-The unit tests check the init sequence byte for byte against `INIT_SEQUENCE` in
-`switch2_usb.py`. They also parse the Python file directly, so the two copies can't drift
-apart. And they check that the format byte (0x05 / 0x0A) is the only difference between the
-two modes.
+**Status: builds and passes its unit tests, not yet run on a phone.** Everything below
+describes what the code does; what Android actually does with it on the Galaxy Z TriFold is
+the next thing to find out. Please copy the app's log (Copy all) after trying each part.
 
 ## Install
 
-1. On the phone, enable Developer options: Settings > About phone > Software information >
-   tap **Build number** 7 times.
-2. Settings > Developer options: turn on **USB debugging**. Because the TriFold has only one
-   USB-C port, which the controller will use, also turn on **Wireless debugging**.
-3. Install from the PC. Pick one of the two ways below.
+Download `GCBridge-<version>.apk` from the repository's Releases page (or build it, see below)
+and either open it on the phone (allow "install unknown apps" for your browser / file manager
+when asked) or install it from the PC:
 
-   Over USB, before plugging in the controller:
+```powershell
+$adb = "$env:USERPROFILE\Android\Sdk\platform-tools\adb.exe"
+& $adb install -r GCBridge-0.2.apk
+```
 
-   ```powershell
-   $adb = "$env:USERPROFILE\Android\Sdk\platform-tools\adb.exe"
-   & $adb install -r android\gcbridge\app\build\outputs\apk\debug\app-debug.apk
-   ```
+If One UI blocks the install, turn off **Auto Blocker** (Settings > Security and privacy) for
+the moment. The APK is debug-signed, like any `assembleDebug` build.
 
-   Or over Wi-Fi (same network). In Wireless debugging, tap **Pair device with pairing code**,
-   then:
+## Permissions the app asks for, and when
 
-   ```powershell
-   & $adb pair <ip>:<pairing-port>      # enter the 6-digit code
-   & $adb connect <ip>:<port>           # the port shown on the Wireless debugging screen
-   & $adb install -r ...\app-debug.apk
-   ```
+| Permission | Needed for | How to grant |
+|---|---|---|
+| USB device access | Start controller, USB capture | Android asks when you plug the controller in or tap the button |
+| Display over other apps | the overlay | Show overlay opens the settings page the first time |
+| Notifications (Android 13+) | the "recording…" notification with its Marker / Stop buttons | asked on the first Record |
+| Accessibility service | button capture while a game is in front | Settings > Accessibility > Installed apps > GC Bridge button capture |
+| Bluetooth (Nearby devices) | the Bluetooth reader | asked on Scan & connect |
 
-   You can also copy the APK to the phone and open it there (allow "install unknown apps" for
-   the file manager when asked).
+The accessibility service reads **only gamepad / joystick key events** (see
+`InputRouter.onKey`): keyboard typing, the screen and other apps' content are never read, and
+no event is blocked or changed. On Android 13+ a sideloaded app can't be enabled as an
+accessibility service until you allow restricted settings: **App info > ⋮ > Allow restricted
+settings**, then enable it.
 
-   If the phone blocks the install or USB debugging, check **Auto Blocker** (Settings >
-   Security and privacy > Auto Blocker). Recent One UI versions may turn it on by default, and
-   it blocks apps from outside the Play Store and Galaxy Store. Turn it off to install.
+## Using it
 
-## Use
+The screen has these sections, top to bottom.
 
-1. Connect the controller to the phone with a USB-C **data** cable. Some cables only charge.
-2. Android asks whether to open GC Bridge for the controller. Tick "always" and tap OK. The
-   app opens, gets USB permission and sends the init right away. If you open the app from the
-   launcher instead, tap **Start controller** and allow USB access.
-3. Check **Input devices** for an entry with `057e:2073`. It should be marked `*`, with
-   GAMEPAD / JOYSTICK in its sources. If it's there even before Start, the kernel bound the
-   HID interface.
-4. Press buttons and move the sticks. Watch **Live gamepad input** and **Key events**, then
-   try a game.
-5. Send the results: tap **Copy all** and paste them somewhere, or watch over Wi-Fi adb:
+### Log & overlay
 
-   ```powershell
-   & $adb logcat -s GCBridge
-   ```
+* The live preview draws the controller you used last.
+* **Record** starts a `.ctlog` (a foreground service keeps it going while you play); **Stop
+  recording** closes it. **Marker** writes a `m` row (a split) into the recording, also
+  available from the notification.
+* **Show overlay** puts the floating controller over other apps. Drag it to move it; tap it to
+  collapse it into a small badge and tap the badge to bring it back. The layout, size and
+  opacity are set below the buttons (`auto` picks the layout from the controller family).
+* **Recordings…** lists the files, and offers Share (send to your PC, Drive, email...), Copy to
+  Downloads (`Download/GC Bridge/`) and Delete. The files live in
+  `Android/data/com.controllerlog.gcbridge/files/recordings/`, which is visible from a PC over
+  USB file transfer, and are named `gcbridge_<date>_<time>.ctlog`.
 
-   Motion events are logged at most 10 times per second; every key event is logged.
+What gets logged, by source:
 
-The controller needs the init again after every replug. That happens automatically if you
-ticked "always open GC Bridge".
+| Source | Buttons | Sticks, triggers, hat D-pad | Works with a game in front? |
+|---|---|---|---|
+| Any controller Android supports, while the GC Bridge screen is in front | yes | yes | no (the game gets the input, not GC Bridge) |
+| Same, with **Button capture** (accessibility) on | yes | no: Android delivers axes only to the focused app, and turns the DS4 / DualSense / Xbox hat D-pad into keys inside that app | **yes** |
+| **USB capture** of the Switch 2 GameCube / Pro controller | yes | yes, full analog triggers, 250 Hz | yes, but the game can't see the controller while it runs |
+| **Bluetooth capture** (experimental) | yes | yes | yes, but Android never sees a gamepad this way |
 
-## What to expect / how to read the results
+For system-wide capture with sticks, the PC route still exists:
+`controllerlog live --adb` reads the phone's controllers over ADB (docs/ANDROID.md).
 
-- **The best case**: a gamepad appears, and after Start the buttons and sticks produce events.
-  Games that support standard Android gamepads should then just work.
-- **The standard report has only 4 axes**: X/Y (left stick) and Rx/Rz (right stick). Android
-  and most games expect the right stick on Z/RZ, so the right stick's horizontal axis may show
-  up as RX and be ignored by some games.
-- **The GameCube controller's analog L/R are probably not in the standard report.** They will
-  likely show up only as buttons (the full-press click), not as LTRIGGER / RTRIGGER values.
-- **Buttons 17-21** of the report become `BTN_TRIGGER_HAPPY` codes in Linux. Android may show
-  these as unknown key codes.
-- **No input device at all**: the kernel didn't create one for interface 0, or Android filtered
-  it out. Use **Peek HID reports** to check whether `id 0x0A` reports arrive (about 250 per
-  second).
-  - If they arrive, the controller side works and the problem is on the Android/kernel side.
-  - If nothing arrives, the init didn't take. The USB log shows which command failed.
-- **In 0x05 mode**, no gamepad input is expected. That mode is only there to compare with the
-  Windows behaviour.
+### Button capture everywhere
+
+Tap **Accessibility settings**, enable *GC Bridge button capture*. The status line on the
+screen says ON once Android has started the service. Buttons from every gamepad are then
+logged and shown on the overlay in any app.
+
+### USB: gamepad mode and capture mode
+
+* **Start controller (gamepad mode)** is what GC Bridge 0.1 did: it runs automatically when
+  the controller is plugged in (if you let GC Bridge open for it), sends the init sequence
+  with the standard report (0x0A) selected, releases the controller and lets Android's own
+  HID driver turn it into a gamepad for every game. The *Nintendo/SDL format (0x05)* radio
+  button is a debug option: the kernel ignores that report.
+* **Start USB capture** is the new mode: GC Bridge reads the controller itself. It reads the
+  stick calibration and trigger rest values from the controller's flash, initialises it in
+  Nintendo format, then claims the HID interface and streams every report into the log and
+  the overlay, in the background. While it runs Android has **no** gamepad for this
+  controller (claiming the interface detaches the kernel driver); Stop USB capture releases
+  it, and a replug always brings the gamepad back.
+
+The GameCube button mapping follows SDL 3.4's driver (`HandleGameCubeState`): the face bits
+are read positionally like the Pro Controller's, so the GameCube "A" bit lands on `east` and
+the "B" bit on `south` until someone confirms which physical button sets which bit. The same
+mapping is used over USB on the PC, over Bluetooth on the PC and in this app, so a wrong guess
+is at least a consistent one, fixed in one table (`Switch2Protocol.GC_BITS` here,
+`BUTTON_BITS` in `switch2_usb.py`).
+
+### Bluetooth capture (experimental)
+
+Hold the controller's SYNC button until its LEDs run back and forth, tap **Scan & connect**
+and grant the Bluetooth permission. The app scans for Nintendo's manufacturer data (company
+0x0553), connects without pairing (a pairing attempt makes these controllers disconnect, so
+never pair it in Android's Bluetooth settings), asks for a 247-byte MTU and a high connection
+priority, subscribes to the report 0x05 notifications, sends the player LED and feature
+commands, and reads the calibration blocks. It is a port of `controllerlog/input/switch2_ble.py`,
+which has itself never been run against a real controller: expect to send logs. If the log
+says the notifications are only 20 bytes, the MTU request was refused and sticks can't be
+decoded.
+
+Android itself never sees a gamepad this way (that would need a virtual input device, i.e.
+root or Shizuku); the reader only feeds the log and the overlay.
+
+### Diagnostics
+
+The lower half of the screen is unchanged from 0.1: raw axes and key events of the last-used
+gamepad, the USB log with every command and reply in hex, the list of Android input devices
+with their sources and axes, and **Peek HID reports** (claims the HID interface for 2 seconds
+and prints what arrives). **Copy all** puts everything on the clipboard.
+
+## Build
+
+With the Android SDK (JDK 21, platform android-37, build-tools 37.0.0):
+
+```powershell
+cd android\gcbridge
+$env:JAVA_HOME    = "$env:USERPROFILE\Android\jdk-21"
+$env:ANDROID_HOME = "$env:USERPROFILE\Android\Sdk"
+.\gradlew.bat assembleDebug testDebugUnitTest lintDebug
+.\gradlew.bat --stop
+```
+
+The APK is `app\build\outputs\apk\debug\app-debug.apk`. `local.properties` (not in version
+control) holds `sdk.dir`. Versions: Android Gradle Plugin 9.4.1, Gradle 9.7.1, compileSdk 37,
+targetSdk 36, minSdk 29. Plain Java, framework views only, no library dependencies (JUnit for
+the tests). The Gradle build copies `controllerlog/layouts/*.json` into the APK's assets, so
+the overlay always matches the PC layouts.
+
+**Without the SDK** (a machine that can't reach dl.google.com, e.g. some cloud dev boxes):
+
+```bash
+python scripts/build_apk_nosdk.py --fetch    # aapt2, R8, android.jar, apksig, JUnit -> vendor/android-nosdk
+python scripts/build_apk_nosdk.py --test     # -> app/build/outputs/apk/nosdk/app-debug.apk, runs the unit tests
+```
+
+The 33 JVM unit tests check, against the Python side of the repository: the init commands
+(byte for byte against `switch2_usb.py`), report decoding and calibration (against vectors
+generated by `tests/fixtures/switch2/make_java_vectors.py`), the BLE command bytes, the key /
+axis mapping, the `.ctlog` writer (a sample file it wrote is read by the Python tests), the
+JSON reader and every layout file.
 
 ## Layout
 
 ```
-android/gcbridge/
-  settings.gradle.kts, build.gradle.kts, gradle.properties, gradlew(.bat), gradle/wrapper/
-  app/build.gradle.kts
-  app/src/main/AndroidManifest.xml              USB host feature, attach intent-filter
-  app/src/main/res/xml/device_filter.xml        vendor 1406, products 8307 / 8297
-  app/src/main/java/com/controllerlog/gcbridge/
-    Switch2Protocol.java   command bytes, report decoding (pure Java, unit-tested)
-    Switch2Usb.java        USB host code: init over interface 1, optional HID peek
-    InputDiagnostics.java  input device / source / axis descriptions
-    MainActivity.java      UI, USB permission, device listener, key/motion capture
-  app/src/test/java/com/controllerlog/gcbridge/Switch2ProtocolTest.java
+android/gcbridge/app/src/main/java/com/controllerlog/gcbridge/
+  Pad.java               canonical buttons/axes (= controllerlog/model.py) and PadState
+  Json.java              tiny JSON reader/writer (layouts, .ctlog rows)
+  Layout.java            layout file model + validation; LayoutStore.java loads the assets
+  PadView.java           draws a layout for a state (preview and overlay)
+  OverlayWindow.java     the floating window: drag, collapse, size/opacity prefs
+  AndroidInput.java      key codes / scan codes / axes -> canonical (as adb_backend.py)
+  InputRouter.java       KeyEvent / MotionEvent -> InputHub
+  InputHub.java          state per controller, listeners, recording
+  CtlogWriter.java       the .ctlog writer
+  CaptureService.java    foreground service: recording, overlay, USB/BLE readers, notification
+  KeyCaptureService.java accessibility service (system-wide buttons)
+  RecordingStore.java    recording files, Downloads export; RecordingProvider.java for sharing
+  Switch2Protocol.java   commands, report decoding, calibration, BLE packets (pure Java)
+  Switch2Usb.java        USB host: gamepad-mode init, Peek, and the capture loop
+  Switch2Ble.java        Bluetooth LE reader (experimental)
+  InputDiagnostics.java  input device descriptions
+  MainActivity.java      the screen
+app/src/test/java/...    JUnit tests (JVM)
 ```

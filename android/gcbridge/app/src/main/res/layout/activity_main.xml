@@ -25,6 +25,160 @@
             android:layout_marginTop="4dp"
             android:text="@string/status_searching" />
 
+        <!-- ===== Log & overlay ===== -->
+        <TextView
+            style="@style/SectionTitle"
+            android:text="@string/section_capture" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/capture_hint"
+            android:textSize="12sp" />
+
+        <com.controllerlog.gcbridge.PadView
+            android:id="@+id/pad_preview"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp" />
+
+        <TextView
+            android:id="@+id/capture_status"
+            style="@style/MonoBlock"
+            android:text="@string/capture_idle" />
+
+        <LinearLayout
+            style="?android:attr/buttonBarStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn_record"
+                style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/btn_record" />
+
+            <Button
+                android:id="@+id/btn_marker"
+                style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/btn_marker" />
+
+            <Button
+                android:id="@+id/btn_overlay"
+                style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/btn_overlay_show" />
+
+            <Button
+                android:id="@+id/btn_recordings"
+                style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/btn_recordings" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/label_layout" />
+
+            <Spinner
+                android:id="@+id/layout_spinner"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/label_overlay_size"
+            android:textSize="12sp" />
+
+        <SeekBar
+            android:id="@+id/overlay_size"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="85" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/label_overlay_alpha"
+            android:textSize="12sp" />
+
+        <SeekBar
+            android:id="@+id/overlay_alpha"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="80" />
+
+        <!-- ===== Accessibility button capture ===== -->
+        <TextView
+            style="@style/SectionTitle"
+            android:text="@string/section_accessibility" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/accessibility_hint"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/accessibility_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/accessibility_off"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btn_accessibility"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_accessibility" />
+
+        <!-- ===== USB: gamepad mode (Start) and capture mode ===== -->
+        <TextView
+            style="@style/SectionTitle"
+            android:text="@string/section_usb_capture" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/usb_capture_hint"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/usb_status"
+            style="@style/MonoBlock" />
+
+        <Button
+            android:id="@+id/btn_usb_capture"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_usb_capture_start" />
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -57,10 +211,34 @@
             android:layout_marginTop="8dp"
             android:text="@string/btn_start" />
 
+        <!-- ===== Bluetooth ===== -->
+        <TextView
+            style="@style/SectionTitle"
+            android:text="@string/section_ble" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/ble_hint"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/ble_status"
+            style="@style/MonoBlock" />
+
+        <Button
+            android:id="@+id/btn_ble"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_ble_start" />
+
+        <!-- ===== Diagnostics ===== -->
         <LinearLayout
             style="?android:attr/buttonBarStyle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
             android:orientation="horizontal">
 
             <Button

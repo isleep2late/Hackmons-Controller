@@ -2,21 +2,67 @@
 <resources>
     <string name="app_name">GC Bridge</string>
     <string name="status_searching">Looking for a Switch 2 GameCube / Pro controller on USB…</string>
-    <string name="btn_start">Start controller</string>
+    <string name="btn_start">Start controller (gamepad mode)</string>
     <string name="btn_refresh">Rescan</string>
     <string name="btn_copy">Copy all</string>
     <string name="btn_clear">Clear log</string>
     <string name="btn_exit">Exit</string>
     <string name="btn_peek">Peek HID reports</string>
-    <string name="mode_label">Input report format sent in the init sequence:</string>
-    <string name="mode_standard">Standard gamepad (0x0A)</string>
+    <string name="mode_label">Input report format sent by Start controller:</string>
+    <string name="mode_standard">Standard gamepad (0x0A): Android and games see a gamepad</string>
     <string name="mode_nintendo">Nintendo/SDL format (0x05, debug)</string>
     <string name="peek_hint">Peek claims the HID interface for 2 seconds to read raw reports. That detaches the kernel HID driver, so the gamepad disappears from Input devices while Peek runs. Android should reattach the driver when Peek ends; if the gamepad doesn\'t come back, unplug and replug the controller. Use it only when no gamepad input shows up, to see whether the controller is streaming at all.</string>
     <string name="section_live">Live gamepad input</string>
     <string name="section_keys">Key events (newest first)</string>
-    <string name="section_usb">USB log</string>
+    <string name="section_usb">Log</string>
     <string name="section_devices">Input devices</string>
     <string name="live_none">Press a button or move a stick. Events from gamepads and joysticks show here.</string>
     <string name="keys_none">No key events yet.</string>
     <string name="copied">Copied to clipboard</string>
+
+    <!-- capture, recording and overlay -->
+    <string name="section_capture">Log &amp; overlay</string>
+    <string name="capture_hint">Every controller Android knows (Bluetooth or USB) is logged while this screen is in front. Turn on Button capture to keep logging buttons while a game is in front; sticks and triggers need this screen, USB capture or Bluetooth capture.</string>
+    <string name="capture_idle">No controller input yet.</string>
+    <string name="btn_record">Record</string>
+    <string name="btn_stop_record">Stop recording</string>
+    <string name="btn_marker">Marker</string>
+    <string name="btn_overlay_show">Show overlay</string>
+    <string name="btn_overlay_hide">Hide overlay</string>
+    <string name="btn_recordings">Recordings…</string>
+    <string name="label_layout">Overlay layout:</string>
+    <string name="label_overlay_size">Overlay size</string>
+    <string name="label_overlay_alpha">Overlay opacity</string>
+    <string name="overlay_permission_hint">The overlay needs \"Display over other apps\" for GC Bridge. Turn it on, then come back and tap Show overlay again.</string>
+    <string name="section_accessibility">Button capture everywhere</string>
+    <string name="accessibility_hint">An accessibility service that sees controller buttons in every app (not sticks or hat D-pads). Enable it under Settings › Accessibility › Installed apps › GC Bridge. On Android 13+ a sideloaded app is blocked until you allow restricted settings: App info › ⋮ › Allow restricted settings.</string>
+    <string name="accessibility_on">Button capture: ON</string>
+    <string name="accessibility_off">Button capture: off</string>
+    <string name="accessibility_enabled_not_connected">Button capture: enabled in Settings, waiting for Android to start it</string>
+    <string name="btn_accessibility">Accessibility settings</string>
+    <string name="accessibility_label">GC Bridge button capture</string>
+    <string name="accessibility_description">Logs controller button presses for the GC Bridge overlay and recordings while other apps are in front. It never changes or blocks the buttons and reads nothing from the screen.</string>
+    <string name="section_usb_capture">USB capture (GC Bridge reads the controller)</string>
+    <string name="usb_capture_hint">Reads the Switch 2 GameCube / Pro controller directly over USB-C: full analog triggers, 250 reports per second, works in the background. While it runs Android has no gamepad for this controller, so use it to log the pad by itself, not while a game on this phone needs it. Stop it (or replug) to get the gamepad back.</string>
+    <string name="btn_usb_capture_start">Start USB capture</string>
+    <string name="btn_usb_capture_stop">Stop USB capture</string>
+    <string name="section_ble">Bluetooth capture (experimental)</string>
+    <string name="ble_hint">Connects to a Switch 2 GameCube / Pro controller over Bluetooth LE without pairing and reads its reports for logging and the overlay. Android itself never sees a gamepad this way. Hold the controller\'s SYNC button until its LEDs run back and forth, then tap Scan. Never pair it in Android\'s Bluetooth settings (that makes it disconnect).</string>
+    <string name="btn_ble_start">Scan &amp; connect</string>
+    <string name="btn_ble_stop">Disconnect</string>
+    <string name="ble_unsupported">This device has no Bluetooth LE.</string>
+    <string name="recordings_title">Recordings</string>
+    <string name="recordings_none">No recordings yet. Tap Record, press some buttons, then Stop recording.</string>
+    <string name="recordings_share">Share</string>
+    <string name="recordings_export">Copy to Downloads</string>
+    <string name="recordings_delete">Delete</string>
+    <string name="recordings_where">Files are in Android/data/com.controllerlog.gcbridge/files/recordings (visible from a PC over USB) and open with \'controllerlog view\' on the PC.</string>
+
+    <!-- notification -->
+    <string name="channel_capture">Capture &amp; overlay</string>
+    <string name="channel_capture_desc">Shown while GC Bridge records input or shows the overlay.</string>
+    <string name="action_marker">Marker</string>
+    <string name="action_record">Record</string>
+    <string name="action_stop_recording">Stop recording</string>
+    <string name="action_stop_all">Stop all</string>
 </resources>

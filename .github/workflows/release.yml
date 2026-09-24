@@ -1,0 +1,102 @@
+# Builds the downloadable programs and attaches them to a GitHub Release:
+#   GCBridge-<version>.apk                    the Android app
+#   controllerlog-<version>-windows-x64.zip   portable Windows program (no Python needed)
+#   controllerlog-<version>-linux-x64.tar.gz  portable Linux program
+# Run it from the Actions tab (workflow_dispatch) or push a tag like v0.2.0.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to create or update (e.g. v0.2.0)"
+        required: true
+        default: "v0.2.0"
+      prerelease:
+        description: "Mark the release as a pre-release"
+        type: boolean
+        default: true
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    name: GC Bridge APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: android-actions/setup-android@v3
+      - name: Install SDK components
+        run: sdkmanager "platforms;android-37" "build-tools;37.0.0"
+      - name: Build (debug-signed: installs like any sideloaded APK)
+        working-directory: android/gcbridge
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon testDebugUnitTest assembleDebug
+      - name: Rename
+        run: |
+          VERSION=$(grep -oP 'versionName = "\K[^"]+' android/gcbridge/app/build.gradle.kts)
+          mkdir -p out && cp android/gcbridge/app/build/outputs/apk/debug/app-debug.apk "out/GCBridge-$VERSION.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: out/*.apk
+
+  bundles:
+    name: Windows and Linux bundles
+    runs-on: ubuntu-latest   # the Linux bundle's SDL3 needs a glibc at least this new
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install packaging setuptools wheel
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build libudev-dev libdbus-1-dev libusb-1.0-0-dev
+      - name: Build SDL3 for the Linux bundle (joystick/HID only, console build)
+        run: |
+          curl -sSL -o SDL3.tar.gz https://github.com/libsdl-org/SDL/releases/download/release-3.4.16/SDL3-3.4.16.tar.gz
+          tar xzf SDL3.tar.gz
+          cmake -S SDL3-3.4.16 -B sdl-build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DSDL_SHARED=ON -DSDL_STATIC=OFF -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF -DSDL_INSTALL_TESTS=OFF \
+            -DSDL_AUDIO=OFF -DSDL_VIDEO=OFF -DSDL_RENDER=OFF -DSDL_GPU=OFF -DSDL_CAMERA=OFF \
+            -DSDL_DIALOG=OFF -DSDL_TRAY=OFF -DSDL_UNIX_CONSOLE_BUILD=ON \
+            -DSDL_HIDAPI=ON -DSDL_HIDAPI_LIBUSB=ON -DSDL_JOYSTICK=ON -DSDL_HAPTIC=ON -DSDL_SENSOR=ON -DSDL_POWER=ON
+          cmake --build sdl-build -j
+      - name: Linux bundle
+        run: python scripts/build_bundle.py --platform linux --sdl3-lib sdl-build/libSDL3.so.0 --archive
+      - name: Windows bundle
+        run: python scripts/build_bundle.py --platform windows --archive
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundles
+          path: dist/*
+
+  release:
+    name: Publish release
+    needs: [apk, bundles]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: ${{ github.event.inputs.tag || github.ref_name }}
+          prerelease: ${{ github.event.inputs.prerelease == 'true' || github.event.inputs.prerelease == '' }}
+          generate_release_notes: true
+          files: |
+            assets/apk/*.apk
+            assets/bundles/*

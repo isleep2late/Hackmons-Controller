@@ -15,16 +15,34 @@ A speedrunning toolkit for game controllers, inspired by
   `.bk2` movies: convert, render input-display videos, TAS-edit, and compare
   your physical presses with what GSE registered;
 * replay inputs through a virtual controller, and search for better inputs
-  inside BizHawk.
+  inside BizHawk;
+* on an **Android phone**: log any controller to the same `.ctlog` format, show
+  a floating controller overlay over your game, and read the Switch 2 GameCube
+  controller over USB-C or Bluetooth (the **GC Bridge** app).
 
 The Python package and command are called **`controllerlog`**. The Android
 companion app is **GC Bridge** ([android/README.md](android/README.md)).
 
+## Downloads
+
+Ready-made builds are attached to the repository's
+[Releases](https://github.com/isleep2late/Hackmons-Controller/releases) (built by
+`.github/workflows/release.yml`; run it from the Actions tab to make a new one):
+
+| File | What it is |
+|---|---|
+| `GCBridge-<version>.apk` | the Android app; open it on the phone or `adb install -r` it ([install notes](android/README.md#install)) |
+| `controllerlog-<version>-windows-x64.zip` | portable Windows program: unzip anywhere, double-click `live.cmd` (overlay + recording), `doctor.cmd` or `view.cmd`, or run `controllerlog.cmd <command>`. Includes Python 3.14, all dependencies and SDL3.dll; nothing to install. Replay / `--bridge` still need the [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases) |
+| `controllerlog-<version>-linux-x64.tar.gz` | the same for Linux (x86-64; the bundled SDL3 is built on the latest Ubuntu LTS, so it needs a glibc at least that new): `./live`, `./doctor`, `./view`, `./controllerlog <command>`; SDL3 is included |
+
+`python scripts/build_bundle.py --platform windows|linux` builds the bundles (both can be
+built on Linux). Developers can instead install the package as described below.
+
 ```
  Bluetooth / USB controller ──► SDL3 (HID drivers for PS3/4/5, Switch, Wii, 8BitDo, Xbox, …)
  Switch 2 GameCube / Pro ─USB─► switch2_usb (init over USB, 250 Hz reports)
- Android phone + controller ──► adb getevent  ─┐
-                                               ▼
+ Android phone + controller ──► adb getevent  ─┐   (or the GC Bridge app on the phone:
+                                               ▼    log, overlay, USB/BLE reader)
                                    ┌──────── Hub ────────┐
                                    ▼          ▼          ▼
                            .ctlog recorder  web overlay  virtual Xbox/DS4 pad
@@ -43,11 +61,11 @@ companion app is **GC Bridge** ([android/README.md](android/README.md)).
 | BizHawk `.bk2` writer, GSE → bk2 conversion | Built from BizHawk's source; not yet loaded in a real BizHawk |
 | Virtual controller replay / bridge (ViGEmBus) | Tested on Windows (XInput read-back) |
 | Android capture over adb | Tested only against a simulated adb |
-| **GC Bridge** Android app (USB-C, no PC) | Builds, unit-tested; **not yet run on a phone** |
+| **GC Bridge** Android app: `.ctlog` recording, floating overlay, system-wide button capture, USB capture, Bluetooth reader | Builds (Gradle, and without the SDK), 33 JVM unit tests cross-checked against the Python code; **not yet run on a phone** |
 | Switch 2 over Bluetooth LE (`switch2_ble.py`) | Built from protocol research and sniffer captures; **never run against a controller** |
 | BizHawk optimizer (Lua socket bot) | Tested against a model of BizHawk under a real Lua runtime; not against EmuHawk |
 
-There are 650 automated tests (`pytest`); see [Tests](#tests).
+There are about 650 Python tests (`pytest`) and 33 Java tests for the app; see [Tests](#tests).
 
 ## Quick start (Windows)
 
@@ -104,8 +122,9 @@ the background is transparent) and records to `recordings\`. In the console:
 * **Android:** the controller has a hidden *standard HID gamepad* mode (report
   0x0A) that a small app can switch on over USB. **GC Bridge** does that when
   you plug the controller into your phone, so Android should see a normal
-  gamepad in every game. See [android/README.md](android/README.md). Bluetooth
-  on Android needs more work (see [Open work](#open-work)).
+  gamepad in every game. GC Bridge can also read the controller itself, over
+  USB (full analog triggers, 250 Hz) or experimentally over Bluetooth LE, for
+  its own log and overlay. See [android/README.md](android/README.md).
 
 ## Android
 
@@ -114,9 +133,15 @@ Two separate things:
 1. **Capture a controller paired to your phone, from the PC** (no app on the
    phone): enable USB or Wireless debugging and run
    `controllerlog live --adb`. See [docs/ANDROID.md](docs/ANDROID.md).
-2. **GC Bridge app** (no PC needed): makes the Switch 2 GameCube/Pro controller
-   work over USB-C on the phone. Build and install instructions in
-   [android/README.md](android/README.md).
+2. **GC Bridge app** (no PC needed, [android/README.md](android/README.md)):
+   * records any controller Android supports to `.ctlog` (open the file with
+     `controllerlog view` / `stats` / `render` on the PC);
+   * shows a floating, movable controller overlay over other apps, using the
+     same layout files as the PC overlay;
+   * *Button capture*: an accessibility service that keeps logging buttons
+     while a game is in front (Android gives sticks only to the focused app);
+   * makes the Switch 2 GameCube/Pro controller work over USB-C as a gamepad,
+     or reads it directly (USB capture; Bluetooth LE experimentally).
 
 ## Commands
 
@@ -202,8 +227,18 @@ pytest -q
 * Building the Android app needs JDK 21 and the Android SDK (platform
   `android-37.0`, build-tools `37.0.0`); set `ANDROID_HOME` and run
   `./gradlew assembleDebug testDebugUnitTest` in `android/gcbridge`. The unit
-  tests cross-check the app's USB commands against
-  `controllerlog/input/switch2_usb.py`.
+  tests cross-check the app against the Python side (`switch2_usb.py`,
+  `model.py`, the layouts, `tests/fixtures/switch2/java_vectors.json`).
+* No SDK (dl.google.com unreachable)? `python scripts/build_apk_nosdk.py --fetch`
+  downloads aapt2, R8, an android.jar and the signer from mirrors, then
+  `python scripts/build_apk_nosdk.py --test` builds the same debug APK and runs
+  the unit tests with plain `javac`.
+* `python scripts/build_bundle.py --platform windows|linux --archive` builds the
+  portable programs from [Downloads](#downloads) (the Linux one wants a
+  `--sdl3-lib libSDL3.so.0`; see `.github/workflows/release.yml`).
+* Pushing runs `.github/workflows/ci.yml` (pytest, the app's unit tests, lint and
+  a debug APK as an artifact). The **Release** workflow (Actions tab, or a `v*`
+  tag) publishes the APK and both bundles.
 * Can't be done from the cloud: anything with the physical controller, the
   phone, ViGEmBus, GSE or BizHawk. Those need the Windows PC.
 
@@ -211,12 +246,15 @@ pytest -q
 
 1. **Confirm the Switch 2 GameCube buttons over USB**: press every button with
    `controllerlog switch2 usb` running and check each lands on the right input.
-2. **Try GC Bridge on the phone** (Galaxy Z TriFold): does Android create a
-   gamepad after the 0x0A switch, and how do the buttons and axes map?
+2. **Try GC Bridge on the phone** (Galaxy Z TriFold), one part at a time:
+   gamepad mode (does Android create a gamepad after the 0x0A switch, how do
+   the buttons and axes map?), Record + Recordings > Share, the overlay, Button
+   capture with a game in front, USB capture (do the sticks and triggers read
+   right?), and the Bluetooth reader. Copy all after each and keep the log.
 3. **Test the Bluetooth Switch 2 reader on the PC** (`switch2 test`).
-4. **Bluetooth on Android**: the controller never offers a standard mode over
-   Bluetooth, so GC Bridge would need to speak Nintendo's protocol (port of
-   `switch2_ble.py`) and create a virtual gamepad through Shizuku (uhid).
+4. **A gamepad for other apps from the Bluetooth reader**: Android never sees
+   the controller as a gamepad over BLE; that needs a virtual input device
+   (Shizuku / uhid) fed by GC Bridge's reader.
 5. Smaller fixes found during install checks: `doctor` doesn't find adb in
    `C:\platform-tools` or `%USERPROFILE%\Android\Sdk`; `live --host 0.0.0.0`
    prints the 127.0.0.1 URL instead of the LAN address; `scripts/fetch_sdl3.py`
@@ -248,5 +286,5 @@ Protocol and format knowledge comes from reading the sources and docs of
 [BizHawk](https://github.com/TASEmulators/BizHawk),
 [BlueRetro](https://github.com/darthcloud/BlueRetro) and
 [ndeadly's Switch 2 research](https://github.com/ndeadly/switch2_controller_research).
-No code from those projects is copied. No license has been chosen for this
-project yet.
+No code from those projects is copied. Hackmons Controller is released under the
+[MIT License](LICENSE).

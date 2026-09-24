@@ -8,6 +8,7 @@ import android.hardware.usb.UsbInterface;
 import android.hardware.usb.UsbManager;
 import android.os.SystemClock;
 
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
@@ -93,7 +94,7 @@ final class Switch2Usb {
      * {@code type} in each of {@code directions}, preferring interface number {@code preferredId}
      * (where the controller has it: 1 for the vendor command interface, 0 for HID).
      */
-    private static UsbInterface findInterface(UsbDevice d, int interfaceClass, int preferredId,
+    static UsbInterface findInterface(UsbDevice d, int interfaceClass, int preferredId,
                                               int type, int... directions) {
         UsbInterface fallback = null;
         for (int i = 0; i < d.getInterfaceCount(); i++) {
@@ -118,7 +119,7 @@ final class Switch2Usb {
         return fallback;
     }
 
-    private static UsbEndpoint findEndpoint(UsbInterface intf, int type, int direction) {
+    static UsbEndpoint findEndpoint(UsbInterface intf, int type, int direction) {
         for (int e = 0; e < intf.getEndpointCount(); e++) {
             UsbEndpoint ep = intf.getEndpoint(e);
             if (ep.getType() == type && ep.getDirection() == direction) {
@@ -187,7 +188,7 @@ final class Switch2Usb {
         }
     }
 
-    private static boolean sendInit(UsbManager usb, UsbDevice device, UsbDeviceConnection conn,
+    static boolean sendInit(UsbManager usb, UsbDevice device, UsbDeviceConnection conn,
                                     UsbEndpoint out, UsbEndpoint in, int format, Log log) {
         // Optional: the serial number from flash, as a sanity check of the command channel.
         byte[] reply = command(conn, out, in,
@@ -235,7 +236,7 @@ final class Switch2Usb {
         return command(conn, out, in, cmd, Switch2Protocol.PACKET_SIZE, label, log) != SEND_FAILED;
     }
 
-    private static final byte[] SEND_FAILED = new byte[0];
+    static final byte[] SEND_FAILED = new byte[0];
 
     /**
      * Bulk OUT the command, then read the reply in 64-byte packets until a short packet,
@@ -243,7 +244,7 @@ final class Switch2Usb {
      *
      * @return the reply, null if there was no reply, or {@link #SEND_FAILED}
      */
-    private static byte[] command(UsbDeviceConnection conn, UsbEndpoint out, UsbEndpoint in,
+    static byte[] command(UsbDeviceConnection conn, UsbEndpoint out, UsbEndpoint in,
                                   byte[] cmd, int replyLen, String label, Log log) {
         int n = conn.bulkTransfer(out, cmd, cmd.length, SEND_TIMEOUT_MS);
         if (n != cmd.length) {
@@ -350,6 +351,216 @@ final class Switch2Usb {
             }
         } finally {
             conn.close();
+        }
+    }
+
+    // --- capture: GC Bridge reads the controller itself -----------------------------------------
+
+    /**
+     * Reads a 0x40-byte flash block over the command interface (like switch2_usb.read_flash):
+     * the reply to a flash read is 0x50 bytes with the data at offset 0x10.
+     */
+    static byte[] readFlash(UsbDeviceConnection conn, UsbEndpoint out, UsbEndpoint in, int address,
+                            Log log) {
+        byte[] reply = command(conn, out, in, Switch2Protocol.flashReadCommand(address),
+                Switch2Protocol.FLASH_REPLY_LEN,
+                String.format(Locale.ROOT, "flash read 0x%X", address), log);
+        if (reply == null || reply == SEND_FAILED || reply.length < Switch2Protocol.FLASH_REPLY_LEN) {
+            return null;
+        }
+        byte[] data = new byte[Switch2Protocol.FLASH_REPLY_LEN - Switch2Protocol.FLASH_DATA_OFFSET];
+        System.arraycopy(reply, Switch2Protocol.FLASH_DATA_OFFSET, data, 0, data.length);
+        return data;
+    }
+
+    /**
+     * Capture mode: initialises the controller in Nintendo report format, reads its calibration,
+     * then claims the HID interface and streams every 250 Hz report into the hub, in the
+     * background, until {@link #stop()} or an unplug. While it runs, Android's own gamepad for
+     * this controller is detached (games won't see it); releasing the interface gives it back.
+     */
+    static final class Capture implements Runnable {
+        private final UsbManager usb;
+        private final UsbDevice device;
+        private final InputHub hub;
+        private final Log log;
+        private final Thread thread = new Thread(this, "gcbridge-usb-capture");
+        private volatile boolean stopRequested;
+        private volatile boolean running = true;
+        private volatile String status = "starting";
+        private volatile double rateHz;
+        private volatile String deviceKey;
+
+        Capture(UsbManager usb, UsbDevice device, InputHub hub, Log log) {
+            this.usb = usb;
+            this.device = device;
+            this.hub = hub;
+            this.log = log;
+        }
+
+        void start() {
+            thread.start();
+        }
+
+        void stop() {
+            stopRequested = true;
+            try {
+                thread.join(2000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        boolean isRunning() {
+            return running;
+        }
+
+        String status() {
+            return status;
+        }
+
+        double rateHz() {
+            return rateHz;
+        }
+
+        String deviceKey() {
+            return deviceKey;
+        }
+
+        @Override
+        public void run() {
+            try {
+                capture();
+            } catch (RuntimeException e) {
+                android.util.Log.e(MainActivity.TAG, "USB capture failed", e);
+                log.line("Capture: ERROR " + e);
+                status = "error: " + e;
+            } finally {
+                if (deviceKey != null) {
+                    hub.disconnect(deviceKey);
+                }
+                running = false;
+            }
+        }
+
+        private void capture() {
+            String model = Switch2Protocol.modelKey(device.getProductId());
+            if (model == null) {
+                status = "not a Switch 2 controller";
+                log.line("Capture: " + status);
+                return;
+            }
+            if (!usb.hasPermission(device)) {
+                status = "no USB permission";
+                log.line("Capture: ERROR no USB permission");
+                return;
+            }
+            UsbInterface cmdIntf = findInterface(device, UsbConstants.USB_CLASS_VENDOR_SPEC, 1,
+                    UsbConstants.USB_ENDPOINT_XFER_BULK, UsbConstants.USB_DIR_OUT,
+                    UsbConstants.USB_DIR_IN);
+            UsbInterface hid = findInterface(device, UsbConstants.USB_CLASS_HID, 0,
+                    UsbConstants.USB_ENDPOINT_XFER_INT, UsbConstants.USB_DIR_IN);
+            if (cmdIntf == null || hid == null) {
+                status = "interfaces not found";
+                log.line("Capture: ERROR need a vendor interface (bulk) and a HID interface (interrupt IN)");
+                return;
+            }
+            UsbDeviceConnection conn = usb.openDevice(device);
+            if (conn == null) {
+                status = "openDevice failed";
+                log.line("Capture: ERROR openDevice failed");
+                return;
+            }
+            try {
+                // 1. init in Nintendo format + calibration, over the command interface
+                Switch2Protocol.Calibration cal = Switch2Protocol.Calibration.defaults(model);
+                UsbEndpoint out = findEndpoint(cmdIntf, UsbConstants.USB_ENDPOINT_XFER_BULK,
+                        UsbConstants.USB_DIR_OUT);
+                UsbEndpoint cmdIn = findEndpoint(cmdIntf, UsbConstants.USB_ENDPOINT_XFER_BULK,
+                        UsbConstants.USB_DIR_IN);
+                if (conn.claimInterface(cmdIntf, true)) {
+                    try {
+                        cal = Switch2Protocol.readCalibration(
+                                address -> readFlash(conn, out, cmdIn, address, log), model);
+                        log.line("Capture: calibration " + cal.source
+                                + (cal.serial.isEmpty() ? "" : ", serial " + cal.serial));
+                        if (!sendInit(usb, device, conn, out, cmdIn, Switch2Protocol.FORMAT_NINTENDO, log)) {
+                            log.line("Capture: init incomplete; trying to read anyway");
+                        }
+                    } finally {
+                        conn.releaseInterface(cmdIntf);
+                    }
+                } else {
+                    log.line("Capture: WARNING command interface busy; default calibration, no init");
+                }
+                // 2. the HID interface: detaches Android's gamepad for this controller
+                if (!conn.claimInterface(hid, true)) {
+                    status = "claimInterface(HID) failed";
+                    log.line("Capture: ERROR " + status);
+                    return;
+                }
+                UsbEndpoint in = findEndpoint(hid, UsbConstants.USB_ENDPOINT_XFER_INT, UsbConstants.USB_DIR_IN);
+                try {
+                    String key = "usb:" + (cal.serial.isEmpty() ? device.getDeviceName() : cal.serial);
+                    Map<String, Object> extra = new LinkedHashMap<>();
+                    extra.put("transport", "usb");
+                    extra.put("report", "0x05");
+                    extra.put("calibration", cal.source);
+                    extra.put("reader", "gcbridge");
+                    InputHub.Device dev = hub.connect(key,
+                            Switch2Protocol.modelName(device.getProductId()), "gcbridge-usb",
+                            familyFor(model), Switch2Protocol.NINTENDO_VID, device.getProductId(),
+                            "wired", extra);
+                    deviceKey = key;
+                    status = "reading";
+                    log.line("Capture: reading HID reports (games can't see the controller until "
+                            + "capture stops)");
+                    byte[] buf = new byte[Math.max(64, in.getMaxPacketSize())];
+                    int[] buttons = new int[Pad.NUM_BUTTONS];
+                    int[] axes = new int[Pad.NUM_AXES];
+                    long windowStart = SystemClock.elapsedRealtimeNanos();
+                    int windowCount = 0;
+                    int silent = 0;
+                    while (!stopRequested) {
+                        int n = conn.bulkTransfer(in, buf, buf.length, 100);
+                        long now = System.nanoTime();
+                        if (n <= 0) {
+                            if (++silent % 10 == 0 && !isAttached(usb, device)) {
+                                status = "unplugged";
+                                log.line("Capture: controller unplugged");
+                                break;
+                            }
+                            continue;
+                        }
+                        silent = 0;
+                        if (Switch2Protocol.parseInputReport(model, buf, 0, n, cal,
+                                Switch2Protocol.DEFAULT_DEADZONE, buttons, axes)) {
+                            hub.state(dev, buttons, axes, now);
+                        }
+                        windowCount++;
+                        long elapsed = SystemClock.elapsedRealtimeNanos() - windowStart;
+                        if (elapsed >= 1_000_000_000L) {
+                            rateHz = windowCount * 1e9 / elapsed;
+                            windowStart = SystemClock.elapsedRealtimeNanos();
+                            windowCount = 0;
+                        }
+                    }
+                    if (stopRequested) {
+                        status = "stopped";
+                    }
+                } finally {
+                    boolean released = conn.releaseInterface(hid);
+                    log.line("Capture: released HID interface" + (released ? "" : " (failed)")
+                            + "; if the gamepad doesn't come back in Input devices, replug the "
+                            + "controller");
+                }
+            } finally {
+                conn.close();
+            }
+        }
+
+        private static String familyFor(String model) {
+            return Switch2Protocol.MODEL_GAMECUBE.equals(model) ? Pad.FAMILY_GAMECUBE : Pad.FAMILY_SWITCH;
         }
     }
 }
