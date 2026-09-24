@@ -2,6 +2,7 @@
 
 ## v0.2.1
 
+* The APK and both portable bundles are committed under `releases/v0.2.1/` for direct download.
 * GC Bridge: correct button order and stick direction for the Switch 2 GameCube / Pro
   controller in gamepad mode (Android's generic HID driver numbers the report's buttons B, A,
   Y, X, R, ZR, Start, ... and the report's stick Y grows upwards). Confirmed by pressing on the

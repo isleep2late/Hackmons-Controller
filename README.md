@@ -35,6 +35,10 @@ Ready-made builds are attached to the repository's
 | `controllerlog-<version>-windows-x64.zip` | portable Windows program: unzip anywhere, double-click `live.cmd` (overlay + recording), `doctor.cmd` or `view.cmd`, or run `controllerlog.cmd <command>`. Includes Python 3.14, all dependencies and SDL3.dll; nothing to install. Replay / `--bridge` still need the [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases) |
 | `controllerlog-<version>-linux-x64.tar.gz` | the same for Linux (x86-64; the bundled SDL3 is built on the latest Ubuntu LTS, so it needs a glibc at least that new): `./live`, `./doctor`, `./view`, `./controllerlog <command>`; SDL3 is included |
 
+Until GitHub Actions can publish releases for this repository, the same files are committed
+in [`releases/v0.2.1/`](releases/v0.2.1/): open a file there on GitHub and use its
+**Download raw file** button.
+
 `python scripts/build_bundle.py --platform windows|linux` builds the bundles (both can be
 built on Linux). Developers can instead install the package as described below.
 

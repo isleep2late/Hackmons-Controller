@@ -185,12 +185,12 @@ def pip_download(req: Requirement, target: dict, pyver: str, dest: Path, source:
 
 
 def build_pure_wheel(sdist: Path, dest: Path) -> Path:
-    before = set(dest.glob("*.whl"))
     run([sys.executable, "-m", "pip", "wheel", "-q", "--no-deps", "-w", dest, sdist])
-    new = set(dest.glob("*.whl")) - before
-    if not new:
+    want = dist_name(sdist)
+    cands = [p for p in dest.glob("*.whl") if dist_name(p) == want]
+    if not cands:
         raise SystemExit(f"no wheel built from {sdist}")
-    return new.pop()
+    return max(cands, key=lambda p: p.stat().st_mtime)
 
 
 def resolve_wheels(specs: list[str], target: dict, pyver: str, dest: Path) -> list[Path]:
