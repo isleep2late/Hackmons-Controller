@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+# downloaded by scripts/fetch_sdl3.py
+vendor/
+# your recordings and renders
+recordings/
+*.ctlog
+*.ctlog.gz

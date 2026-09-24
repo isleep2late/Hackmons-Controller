@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GC Bridge</string>
+    <string name="status_searching">Looking for a Switch 2 GameCube / Pro controller on USB…</string>
+    <string name="btn_start">Start controller</string>
+    <string name="btn_refresh">Rescan</string>
+    <string name="btn_copy">Copy all</string>
+    <string name="btn_clear">Clear log</string>
+    <string name="btn_exit">Exit</string>
+    <string name="btn_peek">Peek HID reports</string>
+    <string name="mode_label">Input report format sent in the init sequence:</string>
+    <string name="mode_standard">Standard gamepad (0x0A)</string>
+    <string name="mode_nintendo">Nintendo/SDL format (0x05, debug)</string>
+    <string name="peek_hint">Peek claims the HID interface for 2 seconds to read raw reports. That detaches the kernel HID driver, so the gamepad disappears from Input devices while Peek runs. Android should reattach the driver when Peek ends; if the gamepad doesn\'t come back, unplug and replug the controller. Use it only when no gamepad input shows up, to see whether the controller is streaming at all.</string>
+    <string name="section_live">Live gamepad input</string>
+    <string name="section_keys">Key events (newest first)</string>
+    <string name="section_usb">USB log</string>
+    <string name="section_devices">Input devices</string>
+    <string name="live_none">Press a button or move a stick. Events from gamepads and joysticks show here.</string>
+    <string name="keys_none">No key events yet.</string>
+    <string name="copied">Copied to clipboard</string>
+</resources>

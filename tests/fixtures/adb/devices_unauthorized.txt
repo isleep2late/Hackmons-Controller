@@ -1,0 +1,3 @@
+List of devices attached
+0123456789ABCDEF       unauthorized usb:1-2 transport_id:4
+

@@ -1,0 +1,71 @@
+add device 1: /dev/input/event0
+  name:     "gpio_keys"
+add device 2: /dev/input/event1
+  name:     "s2mpg12-power-keys"
+add device 3: /dev/input/event2
+  name:     "fts_ts"
+add device 4: /dev/input/event4
+  name:     "DualSense Wireless Controller"
+add device 5: /dev/input/event5
+  name:     "DualSense Wireless Controller Touchpad"
+add device 6: /dev/input/event6
+  name:     "DualSense Wireless Controller Motion Sensors"
+add device 7: /dev/input/event7
+  name:     "DualSense Wireless Controller Headset Jack"
+[    5000.000000] /dev/input/event6: 0003 0000 ffffff8a
+[    5000.000000] /dev/input/event6: 0004 0005 000003e8
+[    5000.000000] /dev/input/event6: 0000 0000 00000000
+[    5000.020000] /dev/input/event2: 0003 0039 0000002a
+[    5000.020000] /dev/input/event2: 0003 0035 000001f4
+[    5000.020000] /dev/input/event2: 0000 0000 00000000
+[    5000.100000] /dev/input/event4: 0003 0000 000000ff
+[    5000.100000] /dev/input/event4: 0003 0001 00000080
+[    5000.100000] /dev/input/event4: 0000 0000 00000000
+[    5000.300000] /dev/input/event4: 0001 0130 00000001
+[    5000.300000] /dev/input/event4: 0000 0000 00000000
+[    5000.320000] /dev/input/event6: 0003 0001 00001fa4
+[    5000.320000] /dev/input/event6: 0004 0005 0004e5e8
+[    5000.320000] /dev/input/event6: 0000 0000 00000000
+[    5000.450000] /dev/input/event4: 0001 0130 00000000
+[    5000.450000] /dev/input/event4: 0000 0000 00000000
+[    5000.500000] /dev/input/event4: 0003 0005 00000080
+[    5000.500000] /dev/input/event4: 0001 0139 00000001
+[    5000.500000] /dev/input/event4: 0000 0000 00000000
+[    5000.550000] /dev/input/event4: 0003 0005 000000ff
+[    5000.550000] /dev/input/event4: 0000 0000 00000000
+[    5000.600000] /dev/input/event4: 0003 0005 00000000
+[    5000.600000] /dev/input/event4: 0001 0139 00000000
+[    5000.600000] /dev/input/event4: 0000 0000 00000000
+[    5000.650000] /dev/input/event4: 0003 0011 ffffffff
+[    5000.650000] /dev/input/event4: 0000 0000 00000000
+[    5000.700000] /dev/input/event4: 0003 0011 00000000
+[    5000.700000] /dev/input/event4: 0000 0000 00000000
+[    5000.750000] /dev/input/event5: 0001 0110 00000001
+[    5000.750000] /dev/input/event5: 0003 0035 00000384
+[    5000.750000] /dev/input/event5: 0000 0000 00000000
+[    5000.800000] /dev/input/event5: 0001 0110 00000000
+[    5000.800000] /dev/input/event5: 0000 0000 00000000
+add device 8: /dev/input/event8
+  name:     "Nintendo Switch Pro Controller"
+add device 9: /dev/input/event9
+  name:     "Nintendo Switch Pro Controller IMU"
+[    5000.900000] /dev/input/event8: 0003 0000 ffff8001
+[    5000.900000] /dev/input/event8: 0003 0001 00007fff
+[    5000.900000] /dev/input/event8: 0000 0000 00000000
+[    5000.950000] /dev/input/event8: 0001 0131 00000001
+[    5000.950000] /dev/input/event8: 0000 0000 00000000
+[    5000.960000] /dev/input/event9: 0003 0002 00000fa0
+[    5000.960000] /dev/input/event9: 0000 0000 00000000
+[    5001.000000] /dev/input/event8: 0001 0131 00000000
+[    5001.000000] /dev/input/event8: 0000 0000 00000000
+[    5001.050000] /dev/input/event8: 0001 0138 00000001
+[    5001.050000] /dev/input/event8: 0000 0000 00000000
+[    5001.100000] /dev/input/event8: 0001 0138 00000000
+[    5001.100000] /dev/input/event8: 0003 0000 00000000
+[    5001.100000] /dev/input/event8: 0003 0001 00000000
+[    5001.100000] /dev/input/event8: 0000 0000 00000000
+remove device 9: /dev/input/event9
+remove device 8: /dev/input/event8
+[    5001.200000] /dev/input/event4: 0001 013c 00000001
+[    5001.200000] /dev/input/event4: 0000 0000 00000000
+#hang

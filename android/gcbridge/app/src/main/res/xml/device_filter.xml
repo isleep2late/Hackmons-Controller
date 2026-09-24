@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Nintendo (0x057E = 1406) -->
+    <!-- NSO GameCube controller for Switch 2 (0x2073) -->
+    <usb-device vendor-id="1406" product-id="8307" />
+    <!-- Switch 2 Pro Controller (0x2069) -->
+    <usb-device vendor-id="1406" product-id="8297" />
+</resources>

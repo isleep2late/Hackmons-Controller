@@ -1,0 +1,20 @@
+add device 1: /dev/input/event0
+  name:     "gpio_keys"
+add device 2: /dev/input/event1
+  name:     "s2mpg12-power-keys"
+add device 3: /dev/input/event2
+  name:     "fts_ts"
+add device 4: /dev/input/event4
+  name:     "DualSense Wireless Controller"
+add device 5: /dev/input/event5
+  name:     "DualSense Wireless Controller Touchpad"
+add device 6: /dev/input/event6
+  name:     "DualSense Wireless Controller Motion Sensors"
+add device 7: /dev/input/event7
+  name:     "DualSense Wireless Controller Headset Jack"
+[    7000.100000] /dev/input/event4: 0001 0131 00000001
+[    7000.100000] /dev/input/event4: 0000 0000 00000000
+[    7000.200000] /dev/input/event4: 0003 0000 000000ff
+[    7000.200000] /dev/input/event4: 0000 0000 00000000
+#stderr could not get evdev event, No such device
+#exit 1

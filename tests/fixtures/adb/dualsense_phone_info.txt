@@ -1,0 +1,121 @@
+add device 1: /dev/input/event0
+  bus:      0019
+  vendor    0001
+  product   0001
+  version   0100
+  name:     "gpio_keys"
+  location: "gpio-keys/input0"
+  id:       ""
+  version:  1.0.1
+  events:
+    KEY (0001): 0073 
+  input props:
+    <none>
+add device 2: /dev/input/event1
+  bus:      0000
+  vendor    0000
+  product   0000
+  version   0000
+  name:     "s2mpg12-power-keys"
+  location: "s2mpg12-power-keys/input0"
+  id:       ""
+  version:  1.0.1
+  events:
+    KEY (0001): 0072  0074 
+  input props:
+    <none>
+add device 3: /dev/input/event2
+  bus:      001c
+  vendor    0000
+  product   0000
+  version   0000
+  name:     "fts_ts"
+  location: ""
+  id:       ""
+  version:  1.0.1
+  events:
+    KEY (0001): 014a 
+    ABS (0003): 002f  : value 0, min 0, max 9, fuzz 0, flat 0, resolution 0
+                0030  : value 0, min 0, max 1079, fuzz 0, flat 0, resolution 0
+                0031  : value 0, min 0, max 1079, fuzz 0, flat 0, resolution 0
+                0035  : value 0, min 0, max 1079, fuzz 0, flat 0, resolution 0
+                0036  : value 0, min 0, max 2399, fuzz 0, flat 0, resolution 0
+                0039  : value 0, min 0, max 65535, fuzz 0, flat 0, resolution 0
+                003a  : value 0, min 0, max 1023, fuzz 0, flat 0, resolution 0
+  input props:
+    INPUT_PROP_DIRECT
+add device 4: /dev/input/event4
+  bus:      0005
+  vendor    054c
+  product   0ce6
+  version   8100
+  name:     "DualSense Wireless Controller"
+  location: "3c:28:6d:aa:bb:cc"
+  id:       "a0:ab:51:12:34:56"
+  version:  1.0.1
+  events:
+    KEY (0001): 0130  0131  0133  0134  0136  0137  0138  0139 
+                013a  013b  013c  013d  013e 
+    ABS (0003): 0000  : value 128, min 0, max 255, fuzz 0, flat 0, resolution 0
+                0001  : value 127, min 0, max 255, fuzz 0, flat 0, resolution 0
+                0002  : value 0, min 0, max 255, fuzz 0, flat 0, resolution 0
+                0003  : value 129, min 0, max 255, fuzz 0, flat 0, resolution 0
+                0004  : value 128, min 0, max 255, fuzz 0, flat 0, resolution 0
+                0005  : value 0, min 0, max 255, fuzz 0, flat 0, resolution 0
+                0010  : value 0, min -1, max 1, fuzz 0, flat 0, resolution 0
+                0011  : value 0, min -1, max 1, fuzz 0, flat 0, resolution 0
+    FF  (0015): 0050  0051  0058  0059  005a  0060 
+  input props:
+    <none>
+add device 5: /dev/input/event5
+  bus:      0005
+  vendor    054c
+  product   0ce6
+  version   8100
+  name:     "DualSense Wireless Controller Touchpad"
+  location: "3c:28:6d:aa:bb:cc"
+  id:       "a0:ab:51:12:34:56"
+  version:  1.0.1
+  events:
+    KEY (0001): 0110  0145  014a  014d 
+    ABS (0003): 0000  : value 0, min 0, max 1919, fuzz 0, flat 0, resolution 0
+                0001  : value 0, min 0, max 1079, fuzz 0, flat 0, resolution 0
+                002f  : value 0, min 0, max 1, fuzz 0, flat 0, resolution 0
+                0035  : value 0, min 0, max 1919, fuzz 0, flat 0, resolution 0
+                0036  : value 0, min 0, max 1079, fuzz 0, flat 0, resolution 0
+                0039  : value 0, min 0, max 65535, fuzz 0, flat 0, resolution 0
+  input props:
+    INPUT_PROP_POINTER
+    INPUT_PROP_BUTTONPAD
+add device 6: /dev/input/event6
+  bus:      0005
+  vendor    054c
+  product   0ce6
+  version   8100
+  name:     "DualSense Wireless Controller Motion Sensors"
+  location: "3c:28:6d:aa:bb:cc"
+  id:       "a0:ab:51:12:34:56"
+  version:  1.0.1
+  events:
+    ABS (0003): 0000  : value -120, min -32768, max 32768, fuzz 16, flat 0, resolution 8192
+                0001  : value 8150, min -32768, max 32768, fuzz 16, flat 0, resolution 8192
+                0002  : value 210, min -32768, max 32768, fuzz 16, flat 0, resolution 8192
+                0003  : value 3, min -2097152, max 2097152, fuzz 16, flat 0, resolution 1024
+                0004  : value -7, min -2097152, max 2097152, fuzz 16, flat 0, resolution 1024
+                0005  : value 1, min -2097152, max 2097152, fuzz 16, flat 0, resolution 1024
+    MSC (0004): 0005 
+  input props:
+    INPUT_PROP_ACCELEROMETER
+add device 7: /dev/input/event7
+  bus:      0005
+  vendor    054c
+  product   0ce6
+  version   8100
+  name:     "DualSense Wireless Controller Headset Jack"
+  location: "3c:28:6d:aa:bb:cc"
+  id:       "a0:ab:51:12:34:56"
+  version:  1.0.1
+  events:
+    SW  (0005): 0002  0004 
+  input props:
+    <none>

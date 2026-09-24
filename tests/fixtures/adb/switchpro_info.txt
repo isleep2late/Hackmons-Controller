@@ -1,0 +1,40 @@
+add device 1: /dev/input/event8
+  bus:      0005
+  vendor    057e
+  product   2009
+  version   8001
+  name:     "Nintendo Switch Pro Controller"
+  location: "3c:28:6d:aa:bb:cc"
+  id:       "98:b6:e9:01:02:03"
+  version:  1.0.1
+  events:
+    KEY (0001): 0130  0131  0133  0134  0135  0136  0137  0138 
+                0139  013a  013b  013c  013d  013e 
+    ABS (0003): 0000  : value 0, min -32767, max 32767, fuzz 250, flat 500, resolution 0
+                0001  : value 0, min -32767, max 32767, fuzz 250, flat 500, resolution 0
+                0003  : value 0, min -32767, max 32767, fuzz 250, flat 500, resolution 0
+                0004  : value 0, min -32767, max 32767, fuzz 250, flat 500, resolution 0
+                0010  : value 0, min -1, max 1, fuzz 0, flat 0, resolution 0
+                0011  : value 0, min -1, max 1, fuzz 0, flat 0, resolution 0
+    FF  (0015): 0050  0051  0058  0059  005a  0060 
+  input props:
+    <none>
+add device 2: /dev/input/event9
+  bus:      0005
+  vendor    057e
+  product   2009
+  version   8001
+  name:     "Nintendo Switch Pro Controller IMU"
+  location: "3c:28:6d:aa:bb:cc"
+  id:       "98:b6:e9:01:02:03"
+  version:  1.0.1
+  events:
+    ABS (0003): 0000  : value -310, min -32767, max 32767, fuzz 10, flat 0, resolution 4096
+                0001  : value 25, min -32767, max 32767, fuzz 10, flat 0, resolution 4096
+                0002  : value 4090, min -32767, max 32767, fuzz 10, flat 0, resolution 4096
+                0003  : value -12, min -32767, max 32767, fuzz 10, flat 0, resolution 14247
+                0004  : value 4, min -32767, max 32767, fuzz 10, flat 0, resolution 14247
+                0005  : value 2, min -32767, max 32767, fuzz 10, flat 0, resolution 14247
+    MSC (0004): 0005 
+  input props:
+    INPUT_PROP_ACCELEROMETER

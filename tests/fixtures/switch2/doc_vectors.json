@@ -1,0 +1,55 @@
+{
+  "_source": "Hand-built from the example values and field tables in ndeadly/switch2_controller_research (bluetooth_interface.md, hid_reports.md, commands.md, memory_layout.md). Not captured by this project; no hardware was available.",
+  "advertisements": [
+    {"name": "standard (pairing mode)",
+     "manufacturer_data": "53 05 01 00 03 7e 05 69 20 00 01 00 00 00 00 00 00 00 0f 00 00 00 00 00 00 00",
+     "model": "pro", "product_id": 8297, "pairing_mode": true, "wake": false, "host_address": null},
+    {"name": "reconnection",
+     "manufacturer_data": "53 05 01 00 03 7e 05 69 20 00 01 00 5f 11 85 eb f1 48 0f 00 00 00 00 00 00 00",
+     "model": "pro", "product_id": 8297, "pairing_mode": false, "wake": false,
+     "host_address": "48:F1:EB:85:11:5F"},
+    {"name": "wake console",
+     "manufacturer_data": "53 05 01 00 03 7e 05 69 20 00 01 81 5f 11 85 eb f1 48 0f 00 00 00 00 00 00 00",
+     "model": "pro", "product_id": 8297, "pairing_mode": false, "wake": true,
+     "host_address": "48:F1:EB:85:11:5F"},
+    {"name": "joy-con 2 (R) standard",
+     "manufacturer_data": "53 05 01 00 03 7e 05 66 20 00 01 00 00 00 00 00 00 00 0f 00 00 00 00 00 00 00",
+     "model": "joycon_r", "product_id": 8294, "pairing_mode": true, "wake": false, "host_address": null}
+  ],
+  "commands": [
+    {"what": "read 0x40 bytes from 0x13080", "build": ["memory_read", 77952, 64],
+     "hex": "02 91 01 04 00 08 00 00 40 7e 00 00 80 30 01 00"},
+    {"what": "read 0x10 bytes from 0x13040", "build": ["memory_read", 77888, 16],
+     "hex": "02 91 01 04 00 08 00 00 10 7e 00 00 40 30 01 00"},
+    {"what": "read 0x40 bytes from 0x1FC040", "build": ["memory_read", 2080832, 64],
+     "hex": "02 91 01 04 00 08 00 00 40 7e 00 00 40 c0 1f 00"},
+    {"what": "player 1 LED pattern", "build": ["player_leds", 1],
+     "hex": "09 91 01 07 00 08 00 00 01 00 00 00 00 00 00 00"},
+    {"what": "set feature mask 0x2F", "build": ["feature", 2, 47],
+     "hex": "0c 91 01 02 00 04 00 00 2f 00 00 00"},
+    {"what": "enable features 0x2F", "build": ["feature", 4, 47],
+     "hex": "0c 91 01 04 00 04 00 00 2f 00 00 00"}
+  ],
+  "responses": [
+    {"what": "memory read of 0x13040 (plain, handle 0x001A)",
+     "hex": "02 01 01 04 10 78 00 00 10 00 00 00 40 30 01 00 3b e0 d3 41 c6 60 6a bc 4d d7 a2 bb 71 1e dd 37",
+     "cmd": 2, "sub": 4, "address": 77888, "data": "3b e0 d3 41 c6 60 6a bc 4d d7 a2 bb 71 1e dd 37"},
+    {"what": "enable features ack (plain)", "hex": "0c 01 01 04 10 78 00 00 00 00 00 00",
+     "cmd": 12, "sub": 4},
+    {"what": "LED ack with the 14 zero bytes of the extended response characteristic (0x001E)",
+     "hex": "00 00 00 00 00 00 00 00 00 00 00 00 00 00 09 01 01 07 10 78 00 00",
+     "cmd": 9, "sub": 7}
+  ],
+  "stick_calibration": [
+    {"what": "primary analog stick calibration example (0x130A8)", "hex": "b3 67 83 2e 66 5e 3a 06 5f",
+     "x": [1971, 1582, 1594], "y": [2102, 1510, 1520]},
+    {"what": "secondary analog stick calibration example (0x130E8)", "hex": "2c 08 84 d1 65 63 2a 26 62",
+     "x": [2092, 1489, 1578], "y": [2112, 1590, 1570]}
+  ],
+  "device_info_block": {
+    "what": "factory data example at 0x13000 (first 0x25 bytes, rest erased)",
+    "hex": "01 00 48 45 4a 37 31 30 30 31 31 32 31 32 34 37 00 00 7e 05 69 20 01 06 01 23 23 23 a0 a0 a0 e6 e6 e6 32 32 32",
+    "serial": "HEJ71001121247", "vendor_id": 1406, "product_id": 8297,
+    "colors": {"body": "#232323", "buttons": "#a0a0a0", "highlight": "#e6e6e6", "grip": "#323232"}
+  }
+}

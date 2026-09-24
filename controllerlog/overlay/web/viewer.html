@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ControllerLog Viewer</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/css/viewer.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="logo"></span>ControllerLog <span class="muted">viewer</span></div>
+  <div class="group" id="grp-main">
+    <label for="sel-main">Recording</label>
+    <select id="sel-main" title="Recordings on the server"><option value="">— server list —</option></select>
+    <button id="btn-open" class="btn" title="Open a local .ctlog file">Open file…</button>
+  </div>
+  <div class="group" id="grp-ghost">
+    <label for="sel-ghost">Compare</label>
+    <select id="sel-ghost" title="Load a second recording as a ghost"><option value="">— none —</option></select>
+    <button id="btn-open-ghost" class="btn" title="Open a local .ctlog file as ghost">Open…</button>
+    <button id="btn-clear-ghost" class="btn icon" title="Remove ghost" hidden>✕</button>
+  </div>
+  <div class="spacer"></div>
+  <div class="group">
+    <label for="sel-fps">FPS</label>
+    <select id="sel-fps">
+      <option value="60">60</option>
+      <option value="gb">GB / GBC 59.7275</option>
+      <option value="gba">GBA 59.7275</option>
+      <option value="nes">NES / SNES 60.0988</option>
+      <option value="50">50 (PAL)</option>
+      <option value="30">30</option>
+      <option value="custom">custom…</option>
+    </select>
+    <input id="inp-fps" type="number" min="1" max="1000" step="0.0001" value="60" hidden title="Custom frame rate">
+  </div>
+  <div class="group">
+    <label for="sel-layout">Layout</label>
+    <select id="sel-layout"><option value="auto">auto</option></select>
+  </div>
+  <div class="group" id="grp-device" hidden>
+    <label for="sel-device">Device</label>
+    <select id="sel-device"></select>
+  </div>
+  <input id="file-main" type="file" accept=".ctlog,.gz,application/json,text/plain" hidden>
+  <input id="file-ghost" type="file" accept=".ctlog,.gz,application/json,text/plain" hidden>
+</header>
+
+<main class="layout">
+  <section class="card controller-card">
+    <div class="card-head">
+      <h2>Controller</h2>
+      <div class="muted small" id="lbl-layout"></div>
+    </div>
+    <div id="controller" class="controller-stage"></div>
+    <div id="ghost-wrap" class="ghost-wrap" hidden>
+      <div class="ghost-tag">ghost</div>
+      <div id="ghost-controller"></div>
+    </div>
+    <div class="transport">
+      <button class="btn icon" id="btn-start" title="Go to start (Home)">⏮</button>
+      <button class="btn icon" id="btn-prev" title="Previous frame (←)">◀︎</button>
+      <button class="btn icon primary" id="btn-play" title="Play / pause (Space)">▶︎</button>
+      <button class="btn icon" id="btn-next" title="Next frame (→)">▶︎|</button>
+      <button class="btn icon" id="btn-end" title="Go to end (End)">⏭</button>
+      <select id="sel-speed" title="Playback speed">
+        <option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option>
+        <option value="2">2×</option><option value="4">4×</option>
+      </select>
+      <div class="clock"><span id="lbl-time">0:00.000</span><span class="muted" id="lbl-frame">f 0</span></div>
+    </div>
+    <input id="scrub" class="scrub" type="range" min="0" max="1000" step="any" value="0" aria-label="Scrub">
+  </section>
+
+  <section class="card side-card">
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-tab="stats" role="tab">Stats</button>
+      <button class="tab" data-tab="markers" role="tab">Markers <span id="cnt-markers" class="pill">0</span></button>
+      <button class="tab" data-tab="info" role="tab">Info</button>
+    </div>
+    <div class="tab-body" id="tab-stats">
+      <table class="grid" id="tbl-stats">
+        <thead><tr><th>Input</th><th title="Number of presses">Presses</th><th title="Shortest hold (frames)">Min</th>
+          <th title="Mean hold (frames)">Mean</th><th title="Longest hold (frames)">Max</th>
+          <th title="Most presses inside any 1 s window">Peak/s</th><th class="ghost-col" title="Ghost presses">Ghost</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p class="muted small empty-note" id="stats-empty">Load a recording to see per-input statistics.</p>
+    </div>
+    <div class="tab-body" id="tab-markers" hidden>
+      <div class="align-row">
+        <label for="sel-align">Time 0 at</label>
+        <select id="sel-align"><option value="-1">recording start</option></select>
+        <label for="sel-align-ghost" class="ghost-only">ghost at</label>
+        <select id="sel-align-ghost" class="ghost-only"><option value="-1">recording start</option></select>
+      </div>
+      <table class="grid" id="tbl-markers">
+        <thead><tr><th>Time</th><th>Frame</th><th>Marker</th><th class="ghost-col" title="Ghost time minus this run at the same marker">Δ ghost</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p class="muted small empty-note" id="markers-empty">No markers in this recording.</p>
+    </div>
+    <div class="tab-body" id="tab-info" hidden>
+      <dl id="info" class="info"></dl>
+    </div>
+  </section>
+
+  <section class="card timeline-card">
+    <div class="card-head">
+      <h2>Timeline</h2>
+      <div class="tools">
+        <button class="btn" id="btn-fit" title="Show the whole run (F)">Fit</button>
+        <button class="btn" id="btn-zoom-frames" title="Zoom to 60 frames around the playhead">60 f</button>
+        <button class="btn icon" id="btn-zoom-out" title="Zoom out (−)">−</button>
+        <button class="btn icon" id="btn-zoom-in" title="Zoom in (+)">+</button>
+        <label class="check"><input type="checkbox" id="chk-follow" checked> follow</label>
+        <label class="check"><input type="checkbox" id="chk-sticks" checked> sticks</label>
+        <input id="inp-map" class="map" placeholder="map src:dst,…" title="Display remapping, e.g. south:east,east:south">
+      </div>
+    </div>
+    <div class="roll-wrap">
+      <div id="roll"></div>
+      <div id="empty" class="empty">
+        <div class="empty-inner">
+          <div class="big">Drop a <code>.ctlog</code> recording here</div>
+          <div class="muted">or pick one from the server list / <a href="#" id="lnk-open">open a file</a>.
+            Wheel to zoom, drag to pan, click to seek, hover a bar for exact timings.</div>
+        </div>
+      </div>
+    </div>
+    <div class="status muted small" id="status"></div>
+  </section>
+</main>
+
+<div id="drop" class="drop" hidden>
+  <div class="drop-zone" data-target="main"><div>Open as recording</div></div>
+  <div class="drop-zone ghost" data-target="ghost"><div>Load as ghost (compare)</div></div>
+</div>
+
+<script type="module" src="/static/js/viewer.js"></script>
+</body>
+</html>

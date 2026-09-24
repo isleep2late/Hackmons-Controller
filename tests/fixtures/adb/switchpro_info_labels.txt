@@ -1,0 +1,29 @@
+add device 1: /dev/input/event8
+  name:     "Nintendo Switch Pro Controller"
+  events:
+    KEY (0001): BTN_GAMEPAD           BTN_EAST              BTN_NORTH             BTN_WEST             
+                BTN_Z                 BTN_TL                BTN_TR                BTN_TL2              
+                BTN_TR2               BTN_SELECT            BTN_START             BTN_MODE             
+                BTN_THUMBL            BTN_THUMBR           
+    ABS (0003): ABS_X                 : value 0, min -32767, max 32767, fuzz 250, flat 500, resolution 0
+                ABS_Y                 : value 0, min -32767, max 32767, fuzz 250, flat 500, resolution 0
+                ABS_RX                : value 0, min -32767, max 32767, fuzz 250, flat 500, resolution 0
+                ABS_RY                : value 0, min -32767, max 32767, fuzz 250, flat 500, resolution 0
+                ABS_HAT0X             : value 0, min -1, max 1, fuzz 0, flat 0, resolution 0
+                ABS_HAT0Y             : value 0, min -1, max 1, fuzz 0, flat 0, resolution 0
+    FF  (0015): FF_RUMBLE             FF_PERIODIC           FF_SQUARE             FF_TRIANGLE          
+                FF_SINE               FF_GAIN              
+  input props:
+    <none>
+add device 2: /dev/input/event9
+  name:     "Nintendo Switch Pro Controller IMU"
+  events:
+    ABS (0003): ABS_X                 : value -310, min -32767, max 32767, fuzz 10, flat 0, resolution 4096
+                ABS_Y                 : value 25, min -32767, max 32767, fuzz 10, flat 0, resolution 4096
+                ABS_Z                 : value 4090, min -32767, max 32767, fuzz 10, flat 0, resolution 4096
+                ABS_RX                : value -12, min -32767, max 32767, fuzz 10, flat 0, resolution 14247
+                ABS_RY                : value 4, min -32767, max 32767, fuzz 10, flat 0, resolution 14247
+                ABS_RZ                : value 2, min -32767, max 32767, fuzz 10, flat 0, resolution 14247
+    MSC (0004): MSC_TIMESTAMP        
+  input props:
+    INPUT_PROP_ACCELEROMETER

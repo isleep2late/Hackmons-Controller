@@ -1,0 +1,39 @@
+/* Live overlay: transparent by default (OBS Browser Source). */
+:root { color-scheme: dark; }
+html, body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+  font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+#stage {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+}
+.lane { display: block; }
+.badge {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 3px 7px;
+  border-radius: 999px;
+  background: rgba(14, 16, 20, 0.7);
+  color: rgba(235, 238, 243, 0.8);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  opacity: 0;
+  transition: opacity 0.25s;
+  pointer-events: none;
+}
+.badge.show { opacity: 1; }
+.badge .dot { width: 7px; height: 7px; border-radius: 50%; background: #ff5b52; }

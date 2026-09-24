@@ -1,0 +1,36 @@
+{
+  "name": "testpad",
+  "title": "Render test pad (every shape, element type and fill direction)",
+  "families": ["test"],
+  "size": [400, 240],
+  "theme": {"body": "#202020", "body_stroke": "#101010", "idle": "#404040", "idle_stroke": "#101010",
+            "active": "#ffd000", "label": "#ffffff", "label_active": "#000000", "font_size": 12},
+  "body": [
+    {"shape": "rect", "x": 2, "y": 2, "w": 396, "h": 236, "r": 20},
+    {"shape": "ellipse", "cx": 330, "cy": 124, "rx": 60, "ry": 58, "fill": "#282828", "stroke": "none"},
+    {"shape": "polygon", "points": [[150, 220], [250, 220], [240, 232], [160, 232]], "fill": "#303030"},
+    {"shape": "text", "x": 200, "y": 20, "text": "TEST PAD", "size": 10, "fill": "#888888"},
+    {"shape": "text", "x": 390, "y": 228, "text": "v1", "size": 9, "anchor": "end"}
+  ],
+  "elements": [
+    {"type": "trigger", "input": "left_trigger", "shape": "rect", "x": 40, "y": 6, "w": 70, "h": 28, "r": 6, "label": "LT", "fill_dir": "up"},
+    {"type": "trigger", "input": "right_trigger", "shape": "rect", "x": 290, "y": 6, "w": 70, "h": 28, "fill_dir": "right"},
+    {"type": "button", "input": "left_shoulder", "shape": "rect", "x": 30, "y": 40, "w": 90, "h": 20, "r": 8, "label": "LB"},
+    {"type": "button", "input": "right_shoulder", "shape": "rect", "x": 280, "y": 40, "w": 90, "h": 20, "r": 8, "label": "RB"},
+    {"type": "stick", "x_axis": "left_x", "y_axis": "left_y", "button": "left_stick", "cx": 180, "cy": 110, "r": 34, "knob_r": 18, "travel": 16, "label": "L"},
+    {"type": "stick", "x_axis": "right_x", "y_axis": "right_y", "button": "right_stick", "cx": 230, "cy": 180, "r": 30, "knob_r": 16},
+    {"type": "button", "input": "dpad_up", "shape": "rect", "x": 72, "y": 110, "w": 24, "h": 28, "r": 3},
+    {"type": "button", "input": "dpad_down", "shape": "rect", "x": 72, "y": 162, "w": 24, "h": 28, "r": 3},
+    {"type": "button", "input": "dpad_left", "shape": "polygon", "points": [[40, 150], [52, 136], [72, 136], [72, 164], [52, 164]]},
+    {"type": "button", "input": "dpad_right", "shape": "rect", "x": 96, "y": 138, "w": 28, "h": 24},
+    {"type": "button", "input": "south", "shape": "circle", "cx": 330, "cy": 160, "r": 18, "label": "A", "active": "#00c000"},
+    {"type": "button", "input": "east", "shape": "circle", "cx": 366, "cy": 124, "r": 18, "label": "B", "active": "#e00000"},
+    {"type": "button", "input": "west", "shape": "circle", "cx": 294, "cy": 124, "r": 18, "label": "X"},
+    {"type": "button", "input": "north", "shape": "circle", "cx": 330, "cy": 88, "r": 18, "label": "Y", "fill": "#505080"},
+    {"type": "button", "input": "start", "shape": "ellipse", "cx": 220, "cy": 60, "rx": 14, "ry": 8},
+    {"type": "button", "input": "back", "shape": "text", "x": 150, "y": 60, "text": "SELECT", "size": 12},
+    {"type": "button", "input": "left_trigger", "shape": "circle", "cx": 20, "cy": 214, "r": 8}
+  ],
+  "history": ["dpad_up", "dpad_down", "dpad_left", "dpad_right", "south", "east", "west", "north",
+              "left_shoulder", "right_shoulder", "left_trigger", "right_trigger", "back", "start"]
+}
