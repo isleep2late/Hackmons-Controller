@@ -120,6 +120,43 @@ public class PadCalibrationTest {
     }
 
     @Test
+    public void backFromTheLiveTestRestoresAndTheNextLiveTestUsesTheNewAnswers() throws IOException {
+        PadFixtures.Fixture f = PadFixtures.byId("thor-ayn-gc-copy");
+        PadCalibration c = thorRun(f);
+        assertEquals(PadCalibration.LiveChange.APPLY, c.liveChange());
+        assertTrue(c.liveApplied());
+        assertEquals(PadCalibration.LiveChange.NONE, c.liveChange());
+        double first = Json.num(Json.asObject(Json.asObject(c.profile(null).get("axes")).get("right_y")), "pos", 0);
+        c.back(t);
+        assertEquals("right_x", c.step().slot);
+        assertEquals(PadCalibration.LiveChange.RESTORE, c.liveChange());
+        assertFalse(c.liveApplied());
+        c.back(t);
+        assertEquals("right_y", c.step().slot);
+        assertEquals(PadCalibration.LiveChange.NONE, c.liveChange());
+        tick(c, 400);
+        hold(c, MotionEvent.AXIS_RZ, 0.8f);
+        assertEquals("right_x", c.step().slot);
+        tick(c, PadCalibration.TIMEOUT_MS + 100);
+        assertTrue(c.isLive());
+        assertEquals(PadCalibration.LiveChange.APPLY, c.liveChange());
+        double again = Json.num(Json.asObject(Json.asObject(c.profile(null).get("axes")).get("right_y")), "pos", 0);
+        assertEquals(0.517, first, 0.001);
+        assertEquals(0.8, again, 0.001);
+    }
+
+    @Test
+    public void mainScreenAppliesAndRestoresTheLiveTestByStep() throws IOException {
+        String src = TestFiles.javaSource("MainActivity.java");
+        String ui = TestFiles.body(src, "private void updateCalibUi(").replaceAll("\\s+", "");
+        assertTrue(ui, ui.contains("PadCalibration.LiveChangechange=c.liveChange();"));
+        assertTrue(ui, ui.contains("change==PadCalibration.LiveChange.RESTORE){InputRouter.reloadSettings(this);}"));
+        String cancel = TestFiles.body(src, "private void cancelCalibration(").replaceAll("\\s+", "");
+        assertTrue(cancel, cancel.contains("calibration.liveApplied()"));
+        assertFalse(src.contains("calibLiveApplied"));
+    }
+
+    @Test
     public void silentStepTimesOutAsUnavailable() throws IOException {
         PadFixtures.Fixture f = PadFixtures.byId("thor-ayn-gc-copy");
         t = 0;

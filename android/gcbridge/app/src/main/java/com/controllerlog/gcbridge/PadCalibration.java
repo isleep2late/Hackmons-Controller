@@ -25,6 +25,8 @@ final class PadCalibration {
 
     enum Kind { REST, BUTTON, TRIGGER, STICK, LIVE }
 
+    enum LiveChange { NONE, APPLY, RESTORE }
+
     static final class Step {
         final Kind kind;
         final String label;
@@ -129,6 +131,7 @@ final class PadCalibration {
     private final List<Step> steps;
     private final Answer[] answers;
     private int index;
+    private boolean liveApplied;
     private long stepStart;
     private final Map<Integer, Float> latest = new HashMap<>();
     private final Map<Integer, Float> rest = new HashMap<>();
@@ -167,6 +170,19 @@ final class PadCalibration {
 
     boolean isLive() {
         return step().kind == Kind.LIVE;
+    }
+
+    LiveChange liveChange() {
+        boolean live = isLive();
+        if (live == liveApplied) {
+            return LiveChange.NONE;
+        }
+        liveApplied = live;
+        return live ? LiveChange.APPLY : LiveChange.RESTORE;
+    }
+
+    boolean liveApplied() {
+        return liveApplied;
     }
 
     boolean awaitingConfirm() {

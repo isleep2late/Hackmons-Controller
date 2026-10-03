@@ -206,7 +206,6 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
     private PadCalibration calibration;
     private int calibDeviceId = Integer.MIN_VALUE;
     private String calibName = "";
-    private boolean calibLiveApplied;
     private final Runnable calibTicker = new Runnable() {
         @Override
         public void run() {
@@ -1325,7 +1324,6 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
         calibration = new PadCalibration(identity, model, SystemClock.uptimeMillis());
         calibDeviceId = deviceId;
         calibName = identity.name;
-        calibLiveApplied = false;
         calibPanel.setVisibility(View.VISIBLE);
         log("Set up " + identity.name + " (" + (model != null ? model : "by position") + ")");
         main.removeCallbacks(calibTicker);
@@ -1346,12 +1344,16 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
         if (c == null || calibPanel == null) {
             return;
         }
-        if (c.isLive() && !calibLiveApplied) {
-            calibLiveApplied = true;
+        PadCalibration.LiveChange change = c.liveChange();
+        if (change == PadCalibration.LiveChange.APPLY) {
             PadSettings now = InputRouter.settings();
             Map<String, Map<String, Object>> profiles = new LinkedHashMap<>(now.profiles);
             profiles.put(c.deviceKey(), c.profile(madeText()));
             InputRouter.setSettings(new PadSettings(profiles, now.ignore, now.drawAs));
+        } else if (change == PadCalibration.LiveChange.RESTORE) {
+            InputRouter.reloadSettings(this);
+        }
+        if (change != PadCalibration.LiveChange.NONE) {
             previewFamily = null;
             updatePreviewLayout();
         }
@@ -1390,9 +1392,8 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
     }
 
     private void cancelCalibration(String why) {
-        boolean restore = calibLiveApplied;
+        boolean restore = calibration != null && calibration.liveApplied();
         closeCalibration();
-        calibLiveApplied = false;
         if (restore) {
             InputRouter.reloadSettings(this);
         }
@@ -1411,7 +1412,6 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
         Map<String, Object> profile = c.profile(madeText());
         PadSettings.saveProfile(this, c.deviceKey(), profile);
         closeCalibration();
-        calibLiveApplied = false;
         InputRouter.reloadSettings(this);
         log("Saved a profile for " + calibName + " (" + c.deviceKey() + ")");
         refreshControllers();
