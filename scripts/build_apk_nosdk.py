@@ -31,6 +31,8 @@ ROOT = Path(__file__).resolve().parent.parent
 APP = ROOT / "android" / "gcbridge" / "app"
 LAYOUTS = ROOT / "controllerlog" / "layouts"
 TOOLS_DEFAULT = ROOT / "vendor" / "android-nosdk"
+DEV_SUFFIX = ".dev"
+DEV_LABEL = "GC Bridge DEV"
 
 # name -> (url, sha256 or None). android-all "17" = Android 17 (API 37).
 TOOLS = {
@@ -101,12 +103,29 @@ def gradle_values() -> dict[str, str]:
     return out
 
 
-def prepared_manifest(build: Path, g: dict[str, str]) -> Path:
+def dev_manifest(src: str, namespace: str) -> str:
+    authority = f'android:authorities="{namespace}.recordings"'
+    if authority not in src:
+        raise SystemExit(f"the manifest has no {authority}; the DEV build cannot rename the provider")
+    src = src.replace(authority, f'android:authorities="{namespace}{DEV_SUFFIX}.recordings"')
+    attach = re.compile(r'\s*<intent-filter>\s*<action android:name="android\.hardware\.usb\.action\.'
+                        r'USB_DEVICE_ATTACHED"\s*/>\s*</intent-filter>\s*<meta-data\s+android:name="android\.'
+                        r'hardware\.usb\.action\.USB_DEVICE_ATTACHED"\s+android:resource="@xml/device_filter"\s*/>')
+    src, n = attach.subn("", src)
+    if n != 1 or "USB_DEVICE_ATTACHED" in src:
+        raise SystemExit("could not remove the USB_DEVICE_ATTACHED filter for the DEV build")
+    return src
+
+
+def prepared_manifest(build: Path, g: dict[str, str], variant: str = "release") -> Path:
     """Gradle injects package/version attributes and strips tools: attributes; do the same."""
     src = (APP / "src" / "main" / "AndroidManifest.xml").read_text(encoding="utf-8")
     src = re.sub(r'\s+tools:[A-Za-z]+="[^"]*"', "", src)
     src = re.sub(r'\s+xmlns:tools="[^"]*"', "", src)
-    attrs = (f' package="{g["applicationId"]}" android:versionCode="{g["versionCode"]}"'
+    if variant == "dev":
+        src = dev_manifest(src, g["namespace"])
+    package = g["namespace"] or g["applicationId"]
+    attrs = (f' package="{package}" android:versionCode="{g["versionCode"]}"'
              f' android:versionName="{g["versionName"]}"')
     src = src.replace("<manifest ", "<manifest" + attrs + " ", 1)
     dst = build / "AndroidManifest.xml"
@@ -118,11 +137,35 @@ def java_files(*dirs: Path) -> list[Path]:
     return sorted(p for d in dirs if d.exists() for p in d.rglob("*.java"))
 
 
-def build(tools: Path, test: bool) -> Path:
+def check_link_options(aapt2: Path, options: list[str]) -> None:
+    r = subprocess.run([str(aapt2), "link", "--help"], capture_output=True, text=True)
+    text = r.stdout + r.stderr
+    missing = [o for o in options if o not in text]
+    if missing:
+        raise SystemExit(f"this aapt2 ({aapt2}) has no {', '.join(missing)}, so the DEV build can't rename "
+                         "the package; use an aapt2 that has them")
+
+
+def dev_resources(build: Path, aapt2: Path) -> Path:
+    values = build / "dev-res" / "values"
+    values.mkdir(parents=True)
+    (values / "strings.xml").write_text(
+        '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n'
+        f'    <string name="app_name">{DEV_LABEL}</string>\n'
+        f'    <string name="accessibility_label">{DEV_LABEL} button capture</string>\n</resources>\n',
+        encoding="utf-8")
+    out = build / "dev-res.zip"
+    run([aapt2, "compile", "--dir", build / "dev-res", "-o", out])
+    return out
+
+
+def build(tools: Path, test: bool, variant: str = "release") -> Path:
     g = gradle_values()
     aapt2 = tools / ("aapt2.exe" if os.name == "nt" else "aapt2")
     android_jar = tools / "android.jar"
-    build = APP / "build" / "nosdk"
+    if variant == "dev" and g["applicationId"] != g["namespace"]:
+        raise SystemExit("the DEV build expects applicationId == namespace in app/build.gradle.kts")
+    build = APP / "build" / ("nosdk-dev" if variant == "dev" else "nosdk")
     if build.exists():
         shutil.rmtree(build)
     (build / "gen").mkdir(parents=True)
@@ -134,10 +177,16 @@ def build(tools: Path, test: bool) -> Path:
 
     # 1. resources
     run([aapt2, "compile", "--dir", APP / "src" / "main" / "res", "-o", build / "res.zip"])
-    manifest = prepared_manifest(build, g)
+    manifest = prepared_manifest(build, g, variant)
     unsigned = build / "app-unsigned.apk"
+    extra: list = []
+    if variant == "dev":
+        check_link_options(aapt2, ["--rename-manifest-package", "--custom-package"])
+        extra = ["-R", dev_resources(build, aapt2),
+                 "--rename-manifest-package", g["namespace"] + DEV_SUFFIX,
+                 "--custom-package", g["namespace"]]
     run([aapt2, "link", "-o", unsigned, "-I", android_jar, "--manifest", manifest,
-         "-R", build / "res.zip", "--java", build / "gen", "-A", build / "assets",
+         "-R", build / "res.zip", *extra, "--java", build / "gen", "-A", build / "assets",
          "--min-sdk-version", g["minSdk"], "--target-sdk-version", g["targetSdk"],
          "--auto-add-overlay", "--no-version-vectors"])
 
@@ -168,7 +217,7 @@ def build(tools: Path, test: bool) -> Path:
     run(["java", "-jar", tools / "uber-apk-signer.jar", "--apks", packed, "--allowResign",
          "-o", build / "signed"])
     signed = next((build / "signed").glob("*.apk"))
-    apk = out_dir / "app-debug.apk"
+    apk = out_dir / ("app-dev.apk" if variant == "dev" else "app-debug.apk")
     shutil.copy(signed, apk)
     log(f"APK: {apk} ({apk.stat().st_size:,} bytes)")
 
@@ -193,6 +242,9 @@ def main() -> int:
     ap.add_argument("--tools", type=Path, default=Path(os.environ.get("NOSDK_TOOLS", TOOLS_DEFAULT)))
     ap.add_argument("--fetch", action="store_true", help="download the tools and exit")
     ap.add_argument("--test", action="store_true", help="run the JVM unit tests after building")
+    ap.add_argument("--variant", choices=("release", "dev"), default="release",
+                    help="dev: package com.controllerlog.gcbridge.dev, label GC Bridge DEV, its own provider "
+                         "authority and no USB attach filter, so it installs beside the release")
     args = ap.parse_args()
     if args.fetch:
         fetch(args.tools)
@@ -200,7 +252,7 @@ def main() -> int:
     missing = [n for n in TOOLS if not (args.tools / n).exists()]
     if missing:
         raise SystemExit(f"missing {missing} in {args.tools}; run with --fetch first")
-    build(args.tools, args.test)
+    build(args.tools, args.test, args.variant)
     return 0
 
 
