@@ -121,8 +121,9 @@ the declared range; Home, Capture, C and the C-stick's left/right never arrive t
 GC Bridge 0.2.2 recognises that copy by the AYN ids together with "GameCube" in the name (the
 built-in controls stay as they were), reads it with the same table, flips the sticks' Y and
 scales them by the pad's default calibration spans (1225/2048 left, 1120/2048 right). The
-overlay dims Home, Capture and C for it. **USB capture** still reads every button, both
-sticks fully and the analog triggers.
+overlay dims Home, Capture and C for it. **USB capture** reads the pad itself and is meant to
+get every button, both sticks fully and the analog triggers, but it has not yet been tried on
+the Thor.
 
 ### Controllers: rules, set-up and profiles
 

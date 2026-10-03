@@ -21,7 +21,7 @@
     <string name="copied">Copied to clipboard</string>
 
     <string name="section_controllers">Controllers</string>
-    <string name="controllers_hint">How GC Bridge reads each controller Android knows. On the AYN Thor the NSO GameCube pad arrives as AYN\'s copy: its buttons are read in the pad\'s own report order and its sticks are turned the right way up. Home, Capture, C and C-stick left/right are not delivered by that copy; USB capture reads them directly.</string>
+    <string name="controllers_hint">How GC Bridge reads each controller Android knows. On the AYN Thor the NSO GameCube pad arrives as AYN\'s copy: its buttons are read in the pad\'s own report order and its sticks are turned the right way up. Home, Capture, C and C-stick left/right are not delivered by that copy; USB capture is meant to read them directly (not yet tried on the Thor).</string>
     <string name="btn_diagnostics">Export diagnostics</string>
     <string name="btn_import_profile">Import profile…</string>
     <string name="btn_setup">Set up this controller</string>
@@ -39,7 +39,7 @@
     <string name="calib_no">No</string>
     <string name="calib_save">Save</string>
     <string name="calib_cancel">Cancel</string>
-    <string name="calib_finish_unavailable">Not delivered by this connection: %1$s. A direct USB reader (USB capture) reads them.</string>
+    <string name="calib_finish_unavailable">Not delivered by this connection: %1$s. USB capture reads the controller itself and may get them.</string>
 
     <!-- capture, recording and overlay -->
     <string name="section_capture">Log &amp; overlay</string>

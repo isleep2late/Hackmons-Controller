@@ -11,7 +11,8 @@ GC Bridge only (the APK, `releases/v0.2.2/`); the PC bundles stay at 0.2.1.
   "GameCube" in the name, reads it in the pad's own report order, flips both sticks' Y and
   scales them by the pad's calibration spans (the copy reaches only about 0.6 of full range).
   Home, Capture, C and the C-stick's left/right are not delivered by that copy; the overlay
-  dims them and USB capture still reads them. The built-in controls are left as they were.
+  dims them. USB capture reads the pad itself and is meant to get them, but it has not yet
+  been tried on the Thor. The built-in controls are left as they were.
   Measured on the Thor: device dumps and a press of every button (2026-10-02).
 * One set of classification rules shared with isleep2late and iswitch2late, pinned by JSON
   fixtures in `tests/fixtures/pads/` built from those Thor captures; "gamecube" in a name is
