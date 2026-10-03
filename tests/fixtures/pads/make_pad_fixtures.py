@@ -132,9 +132,13 @@ def expect(rule: str, model, family: str, key: str, table: str, flip: list, left
 
 
 def fixture(fid: str, source: str, measured: bool, device: dict, exp: dict, presses: list,
-            samples: list, demotions: list | None = None, context: dict | None = None) -> dict:
-    out = {"format": "pad-fixture", "version": 1, "id": fid, "source": source, "measured": measured,
-           "stickPress": STICK_PRESS, "device": device}
+            samples: list, demotions: list | None = None, context: dict | None = None,
+            derived: list | None = None) -> dict:
+    out = {"format": "pad-fixture", "version": 1, "id": fid, "source": source, "measured": measured}
+    if derived:
+        out["derived"] = derived
+    out["stickPress"] = STICK_PRESS
+    out["device"] = device
     if context:
         out["context"] = context
     out["expect"] = exp
@@ -152,6 +156,7 @@ def ayn_device(name: str, descriptor: str, controller: int) -> dict:
 
 
 GC_KEY = "sig:2020:0111:nintendo nintendo gamecube controller"
+THOR_DERIVED = ["device.hasKeys", "presses.keyCode"]
 GC_UNAVAILABLE = ["Home", "Capture", "C", "CStickLeft", "CStickRight"]
 
 THOR_PROFILE = {
@@ -205,7 +210,7 @@ def thor_copy() -> dict:
                  False, GC_UNAVAILABLE, True)
     return fixture("thor-ayn-gc-copy", THOR_SOURCE, True,
                    ayn_device("Nintendo Nintendo GameCube Controller", "45336d6f85bed0c9ed60722b2e9865f72fccd5bf", 3),
-                   exp, presses, samples, demotions)
+                   exp, presses, samples, demotions, derived=THOR_DERIVED)
 
 
 def thor_copy_profile() -> dict:
@@ -227,7 +232,7 @@ def thor_copy_profile() -> dict:
     exp["spans"] = {k: {"neg": v[0], "pos": v[1]} for k, v in spans.items()}
     return fixture("thor-ayn-gc-copy-profile", THOR_SOURCE + "; profile = DESIGN-THOR-FIXES 2.5 example", True,
                    base["device"], exp, base["presses"], samples,
-                   context={"profiles": {GC_KEY: THOR_PROFILE}, "ignore": []})
+                   context={"profiles": {GC_KEY: THOR_PROFILE}, "ignore": []}, derived=THOR_DERIVED)
 
 
 def thor_copy_ignored() -> dict:
@@ -236,7 +241,7 @@ def thor_copy_ignored() -> dict:
                 "expect": {"gcbridge": None, "is2l": None, "iswitch2late": None}} for p in base["presses"][:3]]
     exp = {"rule": "ignored", "ignored": True, "model": "gamecube", "family": "gamecube", "deviceKey": GC_KEY}
     return fixture("thor-ayn-gc-copy-ignored", THOR_SOURCE, True, base["device"], exp, presses, [],
-                   context={"profiles": {}, "ignore": [GC_KEY]})
+                   context={"profiles": {}, "ignore": [GC_KEY]}, derived=THOR_DERIVED)
 
 
 def thor_odin() -> dict:
@@ -268,7 +273,7 @@ def thor_odin() -> dict:
                    "thor-getevent-lp-pad.txt:23-45; presses are synthetic from the shared .kl (the Odin was "
                    "not pressed tonight)", True,
                    ayn_device("Odin Controller", "8e1073ea5832500672194344d81498833991c43c", 1),
-                   exp, presses, samples, demotions)
+                   exp, presses, samples, demotions, derived=["device.hasKeys", "presses"])
 
 
 def thor_mouse() -> dict:
@@ -316,7 +321,8 @@ def trifold() -> dict:
                    trifold_device(0x057e, 0x2073, "Nintendo Co., Ltd. NSO GameCube Controller"),
                    exp, trifold_presses(S2_GC), samples,
                    [{"scan": 0x220, "keyCode": "DPAD_UP", "demotes": True},
-                    {"scan": 0x2c0, "keyCode": "UNKNOWN", "demotes": False}])
+                    {"scan": 0x2c0, "keyCode": "UNKNOWN", "demotes": False}],
+                   derived=["device.axes", "device.hasKeys", "presses.keyCode"])
 
 
 def pro2_hidgeneric() -> dict:

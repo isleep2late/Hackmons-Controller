@@ -4,6 +4,11 @@
  "id": "trifold-gc-hidgeneric",
  "source": "tests/fixtures/adb/switch2_gc_standard_info.txt (TriFold, getevent -i); Android axes and key codes derived from Generic.kl",
  "measured": true,
+ "derived": [
+  "device.axes",
+  "device.hasKeys",
+  "presses.keyCode"
+ ],
  "stickPress": 0.24,
  "device": {
   "name": "Nintendo Co., Ltd. NSO GameCube Controller",

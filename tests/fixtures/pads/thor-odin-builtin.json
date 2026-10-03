@@ -4,6 +4,10 @@
  "id": "thor-odin-builtin",
  "source": "thor-evidence/thor-dumpsys-input.txt:44-55,232-285; thor-getevent-lp-pad.txt:23-45; presses are synthetic from the shared .kl (the Odin was not pressed tonight)",
  "measured": true,
+ "derived": [
+  "device.hasKeys",
+  "presses"
+ ],
  "stickPress": 0.24,
  "device": {
   "name": "Odin Controller",

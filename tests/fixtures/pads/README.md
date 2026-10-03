@@ -42,7 +42,8 @@ Device key: `sig:<vvvv>:<pppp>:<normalised name>` (four lower-case hex digits ea
 ## File format
 
 ```
-format "pad-fixture", version 1, id, source, measured (true = from a device), stickPress (0.24)
+format "pad-fixture", version 1, id, source, measured (true = from a device), derived (optional:
+         fields of a measured fixture that were worked out rather than read, see below), stickPress (0.24)
 device   name, vendor, product (decimal), descriptor, sources [KEYBOARD|GAMEPAD|JOYSTICK|MOUSE...],
          external, controllerNumber, axes [{axis, min, max, flat}], hasKeys [Android key names]
 context  optional: profiles {device key: profile}, ignore [device keys]
@@ -98,3 +99,14 @@ directions (positional) when a stick step timed out.
 | C | misc2 | Misc2 | none |
 | GR / GL | right_paddle1 / left_paddle1 | Paddle1 / Paddle2 | none |
 | Minus / LStick / RStick | back / left_stick / right_stick | Back / LeftStick / RightStick | BUTTON_SELECT / BUTTON_THUMBL / BUTTON_THUMBR |
+
+## Derived fields
+
+`derived` lists the fields of a measured fixture that were not read from the device. On the Thor
+fixtures `device.hasKeys` comes from AYN's `Vendor_2020_Product_0111.kl` and the key bits in
+`getevent -lp`, not from `InputDevice.hasKeys`, and `presses.keyCode` is the `.kl` mapping of the
+measured scan code (the Odin fixture's presses are synthetic); the TriFold fixture's axes, hasKeys and key codes come from `Generic.kl`. The
+Thor harness (test T3, GC Bridge DEV's Export diagnostics `hasKeys` line) records the real lists;
+when they differ, the generator is corrected, the files change and every copy must be refreshed
+with its `SOURCE.txt`. Only rule 9 (clone) reads hasKeys, and the Thor fixtures are decided by
+earlier rules.

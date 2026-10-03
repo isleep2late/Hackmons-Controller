@@ -4,6 +4,10 @@
  "id": "thor-ayn-gc-copy-ignored",
  "source": "thor-evidence/thor-dumpsys-input.txt:18-29,178-231; thor-getevent-lp-pad.txt:1-21; thor-press-test2.txt; Vendor_2020_Product_0111.kl (AYN Thor, Android 13, 2026-10-02)",
  "measured": true,
+ "derived": [
+  "device.hasKeys",
+  "presses.keyCode"
+ ],
  "stickPress": 0.24,
  "device": {
   "name": "Nintendo Nintendo GameCube Controller",
