@@ -57,11 +57,11 @@ final class AndroidInput {
                 || n.contains("wireless controller")) {
             return Pad.FAMILY_PLAYSTATION;
         }
-        if (n.contains("pro controller") || n.contains("joy-con") || n.contains("nintendo")) {
-            return Pad.FAMILY_SWITCH;
-        }
         if (n.contains("gamecube")) {
             return Pad.FAMILY_GAMECUBE;
+        }
+        if (n.contains("pro controller") || n.contains("joy-con") || n.contains("nintendo")) {
+            return Pad.FAMILY_SWITCH;
         }
         return Pad.FAMILY_GENERIC;
     }
@@ -89,7 +89,37 @@ final class AndroidInput {
                 return r;
             }
         }
-        boolean positional = positionalFace(vendorId);
+        return genericButton(keyCode, scanCode, positionalFace(vendorId), analogTriggers);
+    }
+
+    static int buttonForKey(PadClass c, int keyCode, int scanCode, boolean analogTriggers) {
+        if (c.ignored) {
+            return -1;
+        }
+        if (PadClass.TABLE_PROFILE.equals(c.table)) {
+            Integer v = scanCode != 0 ? c.profileButtons.get(PadProfile.inputKeyForScan(scanCode)) : null;
+            if (v == null) {
+                v = c.profileButtons.get(PadProfile.inputKeyForKey(keyCode));
+            }
+            return v != null ? v : -1;
+        }
+        if (PadClass.TABLE_S2_GC.equals(c.table) || PadClass.TABLE_S2_PRO.equals(c.table)) {
+            int r = switch2StandardButton(PadClass.TABLE_S2_GC.equals(c.table) ? PID_GAMECUBE : PID_PRO2,
+                    scanCode);
+            if (r != NOT_A_REPORT_BUTTON) {
+                return r;
+            }
+        }
+        return genericButton(keyCode, scanCode, positionalFace(c.vendorId), analogTriggers);
+    }
+
+    static boolean isSystemVolumeKey(int keyCode) {
+        return keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
+                || keyCode == KeyEvent.KEYCODE_VOLUME_MUTE || keyCode == KeyEvent.KEYCODE_MUTE;
+    }
+
+    private static int genericButton(int keyCode, int scanCode, boolean positional,
+                                     boolean analogTriggers) {
         switch (scanCode) {
             case BTN_SOUTH:
                 return Pad.SOUTH;
@@ -310,19 +340,66 @@ final class AndroidInput {
         final boolean trigger;      // 0..1 instead of -1..1
         final boolean hat;          // AXIS_HAT_X / AXIS_HAT_Y: d-pad buttons
         final boolean invert;       // the device reports this axis the other way round
+        final float scaleNeg;
+        final float scalePos;
+        final boolean centred;
+        final int digitalButton;
+        final boolean digitalPositive;
 
         AxisRoute(int androidAxis, int canonicalAxis, boolean trigger, boolean hat) {
             this(androidAxis, canonicalAxis, trigger, hat, false);
         }
 
         AxisRoute(int androidAxis, int canonicalAxis, boolean trigger, boolean hat, boolean invert) {
+            this(androidAxis, canonicalAxis, trigger, hat, invert, 1f, 1f, false, NO_BUTTON, true);
+        }
+
+        AxisRoute(int androidAxis, int canonicalAxis, boolean trigger, boolean hat, boolean invert,
+                  float scaleNeg, float scalePos, boolean centred, int digitalButton,
+                  boolean digitalPositive) {
             this.androidAxis = androidAxis;
             this.canonicalAxis = canonicalAxis;
             this.trigger = trigger;
             this.hat = hat;
             this.invert = invert;
+            this.scaleNeg = scaleNeg > 0f ? scaleNeg : 1f;
+            this.scalePos = scalePos > 0f ? scalePos : 1f;
+            this.centred = centred;
+            this.digitalButton = digitalButton;
+            this.digitalPositive = digitalPositive;
+        }
+
+        static AxisRoute scaled(int androidAxis, int canonicalAxis, boolean invert, float neg, float pos) {
+            return new AxisRoute(androidAxis, canonicalAxis, false, false, invert, neg, pos, false,
+                    NO_BUTTON, true);
+        }
+
+        static AxisRoute digital(int androidAxis, int button, boolean positive) {
+            return new AxisRoute(androidAxis, -1, false, false, false, 1f, 1f, false, button, positive);
+        }
+
+        boolean isDigital() {
+            return digitalButton != NO_BUTTON;
+        }
+
+        float apply(float v) {
+            if (Float.isNaN(v)) {
+                return v;
+            }
+            if (centred) {
+                v = (v + 1f) / 2f;
+            }
+            float s = v < 0f ? scaleNeg : scalePos;
+            if (s != 1f) {
+                v = v / s;
+            }
+            return invert ? -v : v;
         }
     }
+
+    static final int NO_BUTTON = Integer.MIN_VALUE;
+    static final float DIGITAL_PRESS = 0.5f;
+    static final float DIGITAL_RELEASE = 0.35f;
 
     private static boolean has(int[] present, int axis) {
         for (int a : present) {
@@ -373,6 +450,108 @@ final class AndroidInput {
         }
         if (has(present, MotionEvent.AXIS_HAT_Y)) {
             out.add(new AxisRoute(MotionEvent.AXIS_HAT_Y, -1, false, true));
+        }
+        return out;
+    }
+
+    static List<AxisRoute> routes(PadClass c, PadIdentity id) {
+        int[] present = id.axes();
+        switch (c.routeStyle) {
+            case PadClass.ROUTES_LEGACY_FLIP:
+                return routes(present, true);
+            case PadClass.ROUTES_AYN:
+                return aynRoutes(c, id);
+            case PadClass.ROUTES_KERNEL:
+                return kernelRoutes(c, present);
+            case PadClass.ROUTES_PROFILE:
+                return profileRoutes(c);
+            default:
+                return routes(present, false);
+        }
+    }
+
+    private static List<AxisRoute> aynRoutes(PadClass c, PadIdentity id) {
+        List<AxisRoute> out = new ArrayList<>();
+        if (id.hasAxis(MotionEvent.AXIS_X)) {
+            out.add(AxisRoute.scaled(MotionEvent.AXIS_X, Pad.LEFT_X, false, c.leftScale, c.leftScale));
+        }
+        if (id.hasAxis(MotionEvent.AXIS_Y)) {
+            out.add(AxisRoute.scaled(MotionEvent.AXIS_Y, Pad.LEFT_Y, true, c.leftScale, c.leftScale));
+        }
+        if (c.rightXAxis >= 0) {
+            out.add(AxisRoute.scaled(c.rightXAxis, Pad.RIGHT_X, false, c.rightScale, c.rightScale));
+        }
+        if (c.rightYAxis >= 0) {
+            out.add(AxisRoute.scaled(c.rightYAxis, Pad.RIGHT_Y, true, c.rightScale, c.rightScale));
+        }
+        return out;
+    }
+
+    private static List<AxisRoute> kernelRoutes(PadClass c, int[] present) {
+        List<AxisRoute> out = new ArrayList<>();
+        if (has(present, MotionEvent.AXIS_X)) {
+            out.add(new AxisRoute(MotionEvent.AXIS_X, Pad.LEFT_X, false, false));
+        }
+        if (has(present, MotionEvent.AXIS_Y)) {
+            out.add(new AxisRoute(MotionEvent.AXIS_Y, Pad.LEFT_Y, false, false));
+        }
+        if (has(present, MotionEvent.AXIS_RX) && has(present, MotionEvent.AXIS_RY)) {
+            out.add(new AxisRoute(MotionEvent.AXIS_RX, Pad.RIGHT_X, false, false));
+            out.add(new AxisRoute(MotionEvent.AXIS_RY, Pad.RIGHT_Y, false, false));
+        } else if (!c.triggersOnZ && has(present, MotionEvent.AXIS_Z) && has(present, MotionEvent.AXIS_RZ)) {
+            out.add(new AxisRoute(MotionEvent.AXIS_Z, Pad.RIGHT_X, false, false));
+            out.add(new AxisRoute(MotionEvent.AXIS_RZ, Pad.RIGHT_Y, false, false));
+        }
+        if (c.triggersOnZ) {
+            out.add(new AxisRoute(MotionEvent.AXIS_Z, Pad.LEFT_TRIGGER, true, false, false, 1f, 1f, true,
+                    NO_BUTTON, true));
+            out.add(new AxisRoute(MotionEvent.AXIS_RZ, Pad.RIGHT_TRIGGER, true, false, false, 1f, 1f, true,
+                    NO_BUTTON, true));
+        } else if (has(present, MotionEvent.AXIS_LTRIGGER) || has(present, MotionEvent.AXIS_RTRIGGER)) {
+            out.add(new AxisRoute(MotionEvent.AXIS_LTRIGGER, Pad.LEFT_TRIGGER, true, false));
+            out.add(new AxisRoute(MotionEvent.AXIS_RTRIGGER, Pad.RIGHT_TRIGGER, true, false));
+        } else if (has(present, MotionEvent.AXIS_BRAKE) || has(present, MotionEvent.AXIS_GAS)) {
+            out.add(new AxisRoute(MotionEvent.AXIS_BRAKE, Pad.LEFT_TRIGGER, true, false));
+            out.add(new AxisRoute(MotionEvent.AXIS_GAS, Pad.RIGHT_TRIGGER, true, false));
+        }
+        if (has(present, MotionEvent.AXIS_HAT_X)) {
+            out.add(new AxisRoute(MotionEvent.AXIS_HAT_X, -1, false, true));
+        }
+        if (has(present, MotionEvent.AXIS_HAT_Y)) {
+            out.add(new AxisRoute(MotionEvent.AXIS_HAT_Y, -1, false, true));
+        }
+        return out;
+    }
+
+    private static List<AxisRoute> profileRoutes(PadClass c) {
+        List<AxisRoute> out = new ArrayList<>();
+        String[] slots = {"left_x", "left_y", "right_x", "right_y"};
+        int[] canonical = {Pad.LEFT_X, Pad.LEFT_Y, Pad.RIGHT_X, Pad.RIGHT_Y};
+        for (int i = 0; i < slots.length; i++) {
+            PadClass.Stick s = c.profileAxes.get(slots[i]);
+            if (s != null) {
+                out.add(AxisRoute.scaled(s.axis, canonical[i], s.invert, s.neg, s.pos));
+            }
+        }
+        PadClass.Stick lt = c.profileAxes.get("left_trigger");
+        if (lt != null) {
+            out.add(new AxisRoute(lt.axis, Pad.LEFT_TRIGGER, true, false, lt.invert, lt.neg, lt.pos, false,
+                    NO_BUTTON, true));
+        }
+        PadClass.Stick rt = c.profileAxes.get("right_trigger");
+        if (rt != null) {
+            out.add(new AxisRoute(rt.axis, Pad.RIGHT_TRIGGER, true, false, rt.invert, rt.neg, rt.pos, false,
+                    NO_BUTTON, true));
+        }
+        for (java.util.Map.Entry<String, Integer> e : c.profileButtons.entrySet()) {
+            String k = e.getKey();
+            if (!k.startsWith("axis:") || k.length() < 7) {
+                continue;
+            }
+            int axis = PadIdentity.axisFromName(k.substring(5, k.length() - 1));
+            if (axis >= 0) {
+                out.add(AxisRoute.digital(axis, e.getValue(), k.endsWith("+")));
+            }
         }
         return out;
     }
