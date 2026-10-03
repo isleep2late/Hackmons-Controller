@@ -119,10 +119,14 @@ public final class InputHub {
         Device d;
         synchronized (this) {
             d = devices.get(key);
-            if (d == null || !d.name.equals(name) || !d.family.equals(family)) {
+            if (d == null || !d.name.equals(name) || !d.family.equals(family)
+                    || (d.extra == null) != (extra == null)) {
                 d = new Device(d != null ? d.id : nextId++, key, name, backend, family, vendorId,
                         productId, connection, extra);
                 devices.put(key, d);
+            } else if (extra != null && d.extra != extra && !d.extra.equals(extra)) {
+                d.extra.clear();
+                d.extra.putAll(extra);
             }
             d.connected = true;
             d.state.clear();
