@@ -1,0 +1,167 @@
+{
+ "format": "pad-fixture",
+ "version": 1,
+ "id": "xbox360",
+ "source": "synthetic: xpad 045e:028e with AOSP Vendor_045e_Product_028e.kl axes",
+ "measured": false,
+ "stickPress": 0.24,
+ "device": {
+  "name": "Microsoft X-Box 360 pad",
+  "vendor": 1118,
+  "product": 654,
+  "descriptor": "",
+  "sources": [
+   "KEYBOARD",
+   "GAMEPAD",
+   "JOYSTICK"
+  ],
+  "external": true,
+  "controllerNumber": 1,
+  "axes": [
+   {
+    "axis": "X",
+    "min": -1,
+    "max": 1,
+    "flat": 0.0
+   },
+   {
+    "axis": "Y",
+    "min": -1,
+    "max": 1,
+    "flat": 0.0
+   },
+   {
+    "axis": "Z",
+    "min": -1,
+    "max": 1,
+    "flat": 0.0
+   },
+   {
+    "axis": "RZ",
+    "min": -1,
+    "max": 1,
+    "flat": 0.0
+   },
+   {
+    "axis": "LTRIGGER",
+    "min": 0,
+    "max": 1,
+    "flat": 0.0
+   },
+   {
+    "axis": "RTRIGGER",
+    "min": 0,
+    "max": 1,
+    "flat": 0.0
+   },
+   {
+    "axis": "HAT_X",
+    "min": -1,
+    "max": 1,
+    "flat": 0.0
+   },
+   {
+    "axis": "HAT_Y",
+    "min": -1,
+    "max": 1,
+    "flat": 0.0
+   }
+  ],
+  "hasKeys": [
+   "BUTTON_A",
+   "BUTTON_B",
+   "BUTTON_X",
+   "BUTTON_Y",
+   "BUTTON_L1",
+   "BUTTON_R1",
+   "BUTTON_THUMBL",
+   "BUTTON_THUMBR",
+   "BUTTON_START",
+   "BUTTON_SELECT",
+   "BUTTON_MODE"
+  ]
+ },
+ "expect": {
+  "rule": "family",
+  "model": null,
+  "family": "xbox",
+  "deviceKey": "sig:045e:028e:microsoft x-box 360 pad",
+  "table": "none",
+  "flip": [],
+  "leftX": "X",
+  "leftY": "Y",
+  "rightX": "Z",
+  "rightY": "RZ",
+  "fullScale": {
+   "left": 1.0,
+   "right": 1.0
+  },
+  "triggers": {
+   "left": "LTRIGGER",
+   "right": "RTRIGGER",
+   "centred": false
+  },
+  "dropAxes": [],
+  "analogTriggers": true,
+  "unavailable": [],
+  "rawReport": false
+ },
+ "presses": [
+  {
+   "label": "A",
+   "slot": 0,
+   "scan": 304,
+   "keyCode": "BUTTON_A",
+   "expect": {
+    "gcbridge": "south",
+    "is2l": "A",
+    "iswitch2late": "BUTTON_A"
+   }
+  },
+  {
+   "label": "X",
+   "slot": 0,
+   "scan": 307,
+   "keyCode": "BUTTON_X",
+   "expect": {
+    "gcbridge": "west",
+    "is2l": "X",
+    "iswitch2late": "BUTTON_X"
+   }
+  },
+  {
+   "label": "Y",
+   "slot": 0,
+   "scan": 308,
+   "keyCode": "BUTTON_Y",
+   "expect": {
+    "gcbridge": "north",
+    "is2l": "Y",
+    "iswitch2late": "BUTTON_Y"
+   }
+  }
+ ],
+ "axisSamples": [
+  {
+   "axis": "Y",
+   "raw": 0.5,
+   "canonical": "left_y",
+   "value": 0.5,
+   "expect": "LeftStickDown"
+  },
+  {
+   "axis": "RZ",
+   "raw": -0.5,
+   "canonical": "right_y",
+   "value": -0.5,
+   "expect": "RightStickUp"
+  },
+  {
+   "axis": "RTRIGGER",
+   "raw": 1.0,
+   "canonical": "right_trigger",
+   "value": 1.0,
+   "expect": "RightTrigger"
+  }
+ ]
+}

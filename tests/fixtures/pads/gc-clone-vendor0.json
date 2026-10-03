@@ -1,0 +1,143 @@
+{
+ "format": "pad-fixture",
+ "version": 1,
+ "id": "gc-clone-vendor0",
+ "source": "synthetic: the TriFold node re-identified with vendor/product 0000",
+ "measured": false,
+ "stickPress": 0.24,
+ "device": {
+  "name": "Nintendo Co., Ltd. NSO GameCube Controller",
+  "vendor": 0,
+  "product": 0,
+  "descriptor": "",
+  "sources": [
+   "KEYBOARD",
+   "GAMEPAD",
+   "JOYSTICK"
+  ],
+  "external": true,
+  "controllerNumber": 1,
+  "axes": [
+   {
+    "axis": "X",
+    "min": -1,
+    "max": 1,
+    "flat": 0.1245
+   },
+   {
+    "axis": "Y",
+    "min": -1,
+    "max": 1,
+    "flat": 0.1245
+   },
+   {
+    "axis": "RX",
+    "min": -1,
+    "max": 1,
+    "flat": 0.1245
+   },
+   {
+    "axis": "RZ",
+    "min": -1,
+    "max": 1,
+    "flat": 0.1245
+   }
+  ],
+  "hasKeys": [
+   "BUTTON_A",
+   "BUTTON_B",
+   "BUTTON_C",
+   "BUTTON_X",
+   "BUTTON_Y",
+   "BUTTON_Z",
+   "BUTTON_L1",
+   "BUTTON_R1",
+   "BUTTON_L2",
+   "BUTTON_R2",
+   "BUTTON_THUMBL",
+   "BUTTON_THUMBR",
+   "BUTTON_SELECT",
+   "BUTTON_START",
+   "BUTTON_MODE"
+  ]
+ },
+ "expect": {
+  "rule": "name-gamecube-clone",
+  "model": "gamecube",
+  "family": "gamecube",
+  "deviceKey": "sig:0000:0000:nintendo co., ltd. nso gamecube controller",
+  "table": "S2-GC",
+  "flip": [
+   "Y",
+   "RZ"
+  ],
+  "leftX": "X",
+  "leftY": "Y",
+  "rightX": "RX",
+  "rightY": "RZ",
+  "fullScale": {
+   "left": 1.0,
+   "right": 1.0
+  },
+  "triggers": {
+   "left": null,
+   "right": null,
+   "centred": false
+  },
+  "dropAxes": [],
+  "analogTriggers": false,
+  "unavailable": [],
+  "rawReport": true
+ },
+ "presses": [
+  {
+   "label": "A",
+   "slot": 2,
+   "scan": 305,
+   "keyCode": "BUTTON_B",
+   "expect": {
+    "gcbridge": "south",
+    "is2l": "A",
+    "iswitch2late": "BUTTON_A"
+   }
+  },
+  {
+   "label": "B",
+   "slot": 1,
+   "scan": 304,
+   "keyCode": "BUTTON_A",
+   "expect": {
+    "gcbridge": "west",
+    "is2l": "B",
+    "iswitch2late": "BUTTON_B"
+   }
+  },
+  {
+   "label": "DUp",
+   "slot": 12,
+   "scan": 315,
+   "keyCode": "BUTTON_START",
+   "expect": {
+    "gcbridge": "dpad_up",
+    "is2l": "DpadUp",
+    "iswitch2late": "DPAD_UP"
+   }
+  }
+ ],
+ "axisSamples": [
+  {
+   "axis": "Y",
+   "raw": 0.5,
+   "canonical": "left_y",
+   "value": -0.5,
+   "expect": "LeftStickUp"
+  },
+  {
+   "axis": "X",
+   "raw": 0.2,
+   "canonical": "left_x",
+   "value": 0.2,
+   "expect": null
+  }
+ ]
+}

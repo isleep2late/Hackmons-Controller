@@ -1,0 +1,281 @@
+{
+ "format": "pad-fixture",
+ "version": 1,
+ "id": "thor-odin-builtin",
+ "source": "thor-evidence/thor-dumpsys-input.txt:44-55,232-285; thor-getevent-lp-pad.txt:23-45; presses are synthetic from the shared .kl (the Odin was not pressed tonight)",
+ "measured": true,
+ "stickPress": 0.24,
+ "device": {
+  "name": "Odin Controller",
+  "vendor": 8224,
+  "product": 273,
+  "descriptor": "8e1073ea5832500672194344d81498833991c43c",
+  "sources": [
+   "KEYBOARD",
+   "GAMEPAD",
+   "JOYSTICK"
+  ],
+  "external": true,
+  "controllerNumber": 1,
+  "axes": [
+   {
+    "axis": "X",
+    "min": -1,
+    "max": 1,
+    "flat": 0.00046
+   },
+   {
+    "axis": "Y",
+    "min": -1,
+    "max": 1,
+    "flat": 0.00046
+   },
+   {
+    "axis": "Z",
+    "min": -1,
+    "max": 1,
+    "flat": 0.00046
+   },
+   {
+    "axis": "RZ",
+    "min": -1,
+    "max": 1,
+    "flat": 0.00046
+   },
+   {
+    "axis": "GAS",
+    "min": 0,
+    "max": 1,
+    "flat": 0
+   },
+   {
+    "axis": "BRAKE",
+    "min": 0,
+    "max": 1,
+    "flat": 0
+   },
+   {
+    "axis": "HAT_X",
+    "min": -1,
+    "max": 1,
+    "flat": 0
+   },
+   {
+    "axis": "HAT_Y",
+    "min": -1,
+    "max": 1,
+    "flat": 0
+   }
+  ],
+  "hasKeys": [
+   "BUTTON_A",
+   "BUTTON_B",
+   "BUTTON_C",
+   "BUTTON_X",
+   "BUTTON_Y",
+   "BUTTON_Z",
+   "BUTTON_L1",
+   "BUTTON_R1",
+   "BUTTON_L2",
+   "BUTTON_R2",
+   "BUTTON_THUMBL",
+   "BUTTON_THUMBR",
+   "BUTTON_SELECT",
+   "BUTTON_START",
+   "BUTTON_MODE",
+   "DPAD_UP",
+   "DPAD_DOWN",
+   "DPAD_LEFT",
+   "DPAD_RIGHT"
+  ]
+ },
+ "expect": {
+  "rule": "builtin-untouched",
+  "model": null,
+  "family": "generic",
+  "deviceKey": "sig:2020:0111:odin controller",
+  "table": "none",
+  "flip": [],
+  "leftX": "X",
+  "leftY": "Y",
+  "rightX": "Z",
+  "rightY": "RZ",
+  "fullScale": {
+   "left": 1.0,
+   "right": 1.0
+  },
+  "triggers": {
+   "left": "BRAKE",
+   "right": "GAS",
+   "centred": false
+  },
+  "dropAxes": [],
+  "analogTriggers": true,
+  "unavailable": [],
+  "rawReport": false
+ },
+ "presses": [
+  {
+   "label": "BUTTON_A",
+   "slot": 0,
+   "scan": 304,
+   "keyCode": "BUTTON_A",
+   "expect": {
+    "gcbridge": "south",
+    "is2l": "A",
+    "iswitch2late": "BUTTON_A"
+   }
+  },
+  {
+   "label": "BUTTON_B",
+   "slot": 0,
+   "scan": 305,
+   "keyCode": "BUTTON_B",
+   "expect": {
+    "gcbridge": "east",
+    "is2l": "B",
+    "iswitch2late": "BUTTON_B"
+   }
+  },
+  {
+   "label": "BUTTON_X",
+   "slot": 0,
+   "scan": 307,
+   "keyCode": "BUTTON_X",
+   "expect": {
+    "gcbridge": "west",
+    "is2l": "X",
+    "iswitch2late": "BUTTON_X"
+   }
+  },
+  {
+   "label": "BUTTON_Y",
+   "slot": 0,
+   "scan": 308,
+   "keyCode": "BUTTON_Y",
+   "expect": {
+    "gcbridge": "north",
+    "is2l": "Y",
+    "iswitch2late": "BUTTON_Y"
+   }
+  },
+  {
+   "label": "BUTTON_L1",
+   "slot": 0,
+   "scan": 310,
+   "keyCode": "BUTTON_L1",
+   "expect": {
+    "gcbridge": "left_shoulder",
+    "is2l": "LeftShoulder",
+    "iswitch2late": "BUTTON_L1"
+   }
+  },
+  {
+   "label": "BUTTON_L2",
+   "slot": 0,
+   "scan": 312,
+   "keyCode": "BUTTON_L2",
+   "expect": {
+    "gcbridge": null,
+    "is2l": "LeftTrigger",
+    "iswitch2late": "BUTTON_L2"
+   }
+  },
+  {
+   "label": "BUTTON_START",
+   "slot": 0,
+   "scan": 315,
+   "keyCode": "BUTTON_START",
+   "expect": {
+    "gcbridge": "start",
+    "is2l": "Start",
+    "iswitch2late": "BUTTON_START"
+   }
+  },
+  {
+   "label": "BUTTON_MODE",
+   "slot": 0,
+   "scan": 316,
+   "keyCode": "BUTTON_MODE",
+   "expect": {
+    "gcbridge": "guide",
+    "is2l": "Guide",
+    "iswitch2late": "BUTTON_MODE"
+   }
+  },
+  {
+   "label": "DPAD_UP",
+   "slot": 0,
+   "scan": 544,
+   "keyCode": "DPAD_UP",
+   "expect": {
+    "gcbridge": "dpad_up",
+    "is2l": "DpadUp",
+    "iswitch2late": "DPAD_UP"
+   }
+  }
+ ],
+ "axisSamples": [
+  {
+   "axis": "Y",
+   "raw": 0.5,
+   "canonical": "left_y",
+   "value": 0.5,
+   "expect": "LeftStickDown"
+  },
+  {
+   "axis": "X",
+   "raw": -0.5,
+   "canonical": "left_x",
+   "value": -0.5,
+   "expect": "LeftStickLeft"
+  },
+  {
+   "axis": "Z",
+   "raw": 0.5,
+   "canonical": "right_x",
+   "value": 0.5,
+   "expect": "RightStickRight"
+  },
+  {
+   "axis": "RZ",
+   "raw": 0.5,
+   "canonical": "right_y",
+   "value": 0.5,
+   "expect": "RightStickDown"
+  },
+  {
+   "axis": "X",
+   "raw": 0.2,
+   "canonical": "left_x",
+   "value": 0.2,
+   "expect": null
+  },
+  {
+   "axis": "GAS",
+   "raw": 1.0,
+   "canonical": "right_trigger",
+   "value": 1.0,
+   "expect": "RightTrigger"
+  },
+  {
+   "axis": "BRAKE",
+   "raw": 1.0,
+   "canonical": "left_trigger",
+   "value": 1.0,
+   "expect": "LeftTrigger"
+  }
+ ],
+ "demotions": [
+  {
+   "scan": 544,
+   "keyCode": "DPAD_UP",
+   "demotes": false
+  },
+  {
+   "hat": "HAT_X",
+   "value": 1.0,
+   "demotes": false
+  }
+ ]
+}

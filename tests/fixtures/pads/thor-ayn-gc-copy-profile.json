@@ -1,0 +1,422 @@
+{
+ "format": "pad-fixture",
+ "version": 1,
+ "id": "thor-ayn-gc-copy-profile",
+ "source": "thor-evidence/thor-dumpsys-input.txt:18-29,178-231; thor-getevent-lp-pad.txt:1-21; thor-press-test2.txt; Vendor_2020_Product_0111.kl (AYN Thor, Android 13, 2026-10-02); profile = DESIGN-THOR-FIXES 2.5 example",
+ "measured": true,
+ "stickPress": 0.24,
+ "device": {
+  "name": "Nintendo Nintendo GameCube Controller",
+  "vendor": 8224,
+  "product": 273,
+  "descriptor": "45336d6f85bed0c9ed60722b2e9865f72fccd5bf",
+  "sources": [
+   "KEYBOARD",
+   "GAMEPAD",
+   "JOYSTICK"
+  ],
+  "external": true,
+  "controllerNumber": 3,
+  "axes": [
+   {
+    "axis": "X",
+    "min": -1,
+    "max": 1,
+    "flat": 0.00046
+   },
+   {
+    "axis": "Y",
+    "min": -1,
+    "max": 1,
+    "flat": 0.00046
+   },
+   {
+    "axis": "Z",
+    "min": -1,
+    "max": 1,
+    "flat": 0.00046
+   },
+   {
+    "axis": "RZ",
+    "min": -1,
+    "max": 1,
+    "flat": 0.00046
+   },
+   {
+    "axis": "GAS",
+    "min": 0,
+    "max": 1,
+    "flat": 0
+   },
+   {
+    "axis": "BRAKE",
+    "min": 0,
+    "max": 1,
+    "flat": 0
+   },
+   {
+    "axis": "HAT_X",
+    "min": -1,
+    "max": 1,
+    "flat": 0
+   },
+   {
+    "axis": "HAT_Y",
+    "min": -1,
+    "max": 1,
+    "flat": 0
+   }
+  ],
+  "hasKeys": [
+   "BUTTON_A",
+   "BUTTON_B",
+   "BUTTON_C",
+   "BUTTON_X",
+   "BUTTON_Y",
+   "BUTTON_Z",
+   "BUTTON_L1",
+   "BUTTON_R1",
+   "BUTTON_L2",
+   "BUTTON_R2",
+   "BUTTON_THUMBL",
+   "BUTTON_THUMBR",
+   "BUTTON_SELECT",
+   "BUTTON_START",
+   "BUTTON_MODE",
+   "DPAD_UP",
+   "DPAD_DOWN",
+   "DPAD_LEFT",
+   "DPAD_RIGHT"
+  ]
+ },
+ "context": {
+  "profiles": {
+   "sig:2020:0111:nintendo nintendo gamecube controller": {
+    "v": 1,
+    "match": {
+     "key": "sig:2020:0111:nintendo nintendo gamecube controller",
+     "vendor": "2020",
+     "product": "0111",
+     "name": "Nintendo Nintendo GameCube Controller",
+     "axes": [
+      "X",
+      "Y",
+      "Z",
+      "RZ",
+      "GAS",
+      "BRAKE",
+      "HAT_X",
+      "HAT_Y"
+     ]
+    },
+    "model": "gamecube",
+    "family": "gamecube",
+    "rule": "profile",
+    "buttons": {
+     "scan:0x131": "A",
+     "scan:0x130": "B",
+     "scan:0x133": "X",
+     "scan:0x132": "Y",
+     "scan:0x135": "Z",
+     "scan:0x13c": "L",
+     "scan:0x134": "R",
+     "scan:0x136": "Start",
+     "scan:0x13b": "DUp",
+     "scan:0x138": "DDown",
+     "scan:0x13a": "DLeft",
+     "scan:0x139": "DRight",
+     "scan:0x13d": "ZL"
+    },
+    "axes": {
+     "left_x": {
+      "axis": "X",
+      "neg": 0.557,
+      "pos": 0.619
+     },
+     "left_y": {
+      "axis": "Y",
+      "invert": true,
+      "neg": 0.562,
+      "pos": 0.589
+     },
+     "right_y": {
+      "axis": "RZ",
+      "invert": true,
+      "neg": 0.543,
+      "pos": 0.517
+     }
+    },
+    "unavailable": [
+     "Home",
+     "Capture",
+     "C",
+     "CStickLeft",
+     "CStickRight"
+    ],
+    "made": "2026-10-03 on AYN Thor"
+   }
+  },
+  "ignore": []
+ },
+ "expect": {
+  "rule": "profile",
+  "model": "gamecube",
+  "family": "gamecube",
+  "deviceKey": "sig:2020:0111:nintendo nintendo gamecube controller",
+  "table": "profile",
+  "flip": [
+   "Y",
+   "RZ"
+  ],
+  "leftX": "X",
+  "leftY": "Y",
+  "rightX": null,
+  "rightY": "RZ",
+  "fullScale": null,
+  "triggers": {
+   "left": null,
+   "right": null,
+   "centred": false
+  },
+  "dropAxes": [
+   "Z",
+   "GAS",
+   "BRAKE",
+   "HAT_X",
+   "HAT_Y"
+  ],
+  "analogTriggers": false,
+  "unavailable": [
+   "Home",
+   "Capture",
+   "C",
+   "CStickLeft",
+   "CStickRight"
+  ],
+  "rawReport": true,
+  "spans": {
+   "left_x": {
+    "neg": 0.557,
+    "pos": 0.619
+   },
+   "left_y": {
+    "neg": 0.562,
+    "pos": 0.589
+   },
+   "right_y": {
+    "neg": 0.543,
+    "pos": 0.517
+   }
+  }
+ },
+ "presses": [
+  {
+   "label": "A",
+   "slot": 2,
+   "scan": 305,
+   "keyCode": "BUTTON_B",
+   "expect": {
+    "gcbridge": "south",
+    "is2l": "A",
+    "iswitch2late": "BUTTON_A"
+   }
+  },
+  {
+   "label": "B",
+   "slot": 1,
+   "scan": 304,
+   "keyCode": "BUTTON_A",
+   "expect": {
+    "gcbridge": "west",
+    "is2l": "B",
+    "iswitch2late": "BUTTON_B"
+   }
+  },
+  {
+   "label": "X",
+   "slot": 4,
+   "scan": 307,
+   "keyCode": "BUTTON_X",
+   "expect": {
+    "gcbridge": "east",
+    "is2l": "X",
+    "iswitch2late": "BUTTON_X"
+   }
+  },
+  {
+   "label": "Y",
+   "slot": 3,
+   "scan": 306,
+   "keyCode": "BUTTON_C",
+   "expect": {
+    "gcbridge": "north",
+    "is2l": "Y",
+    "iswitch2late": "BUTTON_Y"
+   }
+  },
+  {
+   "label": "Z",
+   "slot": 6,
+   "scan": 309,
+   "keyCode": "BUTTON_Z",
+   "expect": {
+    "gcbridge": "right_shoulder",
+    "is2l": "RightShoulder",
+    "iswitch2late": "BUTTON_R1"
+   }
+  },
+  {
+   "label": "ZL",
+   "slot": 14,
+   "scan": 317,
+   "keyCode": "BUTTON_THUMBL",
+   "expect": {
+    "gcbridge": "left_shoulder",
+    "is2l": "LeftShoulder",
+    "iswitch2late": "BUTTON_L1"
+   }
+  },
+  {
+   "label": "L",
+   "slot": 13,
+   "scan": 316,
+   "keyCode": "BUTTON_MODE",
+   "expect": {
+    "gcbridge": "left_trigger",
+    "is2l": "LeftTrigger",
+    "iswitch2late": "BUTTON_L2"
+   }
+  },
+  {
+   "label": "R",
+   "slot": 5,
+   "scan": 308,
+   "keyCode": "BUTTON_Y",
+   "expect": {
+    "gcbridge": "right_trigger",
+    "is2l": "RightTrigger",
+    "iswitch2late": "BUTTON_R2"
+   }
+  },
+  {
+   "label": "Start",
+   "slot": 7,
+   "scan": 310,
+   "keyCode": "BUTTON_L1",
+   "expect": {
+    "gcbridge": "start",
+    "is2l": "Start",
+    "iswitch2late": "BUTTON_START"
+   }
+  },
+  {
+   "label": "DUp",
+   "slot": 12,
+   "scan": 315,
+   "keyCode": "BUTTON_START",
+   "expect": {
+    "gcbridge": "dpad_up",
+    "is2l": "DpadUp",
+    "iswitch2late": "DPAD_UP"
+   }
+  },
+  {
+   "label": "DRight",
+   "slot": 10,
+   "scan": 313,
+   "keyCode": "BUTTON_R2",
+   "expect": {
+    "gcbridge": "dpad_right",
+    "is2l": "DpadRight",
+    "iswitch2late": "DPAD_RIGHT"
+   }
+  },
+  {
+   "label": "DDown",
+   "slot": 9,
+   "scan": 312,
+   "keyCode": "BUTTON_L2",
+   "expect": {
+    "gcbridge": "dpad_down",
+    "is2l": "DpadDown",
+    "iswitch2late": "DPAD_DOWN"
+   }
+  },
+  {
+   "label": "DLeft",
+   "slot": 11,
+   "scan": 314,
+   "keyCode": "BUTTON_SELECT",
+   "expect": {
+    "gcbridge": "dpad_left",
+    "is2l": "DpadLeft",
+    "iswitch2late": "DPAD_LEFT"
+   }
+  }
+ ],
+ "axisSamples": [
+  {
+   "axis": "X",
+   "raw": 0.619,
+   "canonical": "left_x",
+   "value": 1.0,
+   "expect": "LeftStickRight"
+  },
+  {
+   "axis": "X",
+   "raw": -0.557,
+   "canonical": "left_x",
+   "value": -1.0,
+   "expect": "LeftStickLeft"
+  },
+  {
+   "axis": "Y",
+   "raw": 0.589,
+   "canonical": "left_y",
+   "value": -1.0,
+   "expect": "LeftStickUp"
+  },
+  {
+   "axis": "Y",
+   "raw": -0.562,
+   "canonical": "left_y",
+   "value": 1.0,
+   "expect": "LeftStickDown"
+  },
+  {
+   "axis": "RZ",
+   "raw": 0.517,
+   "canonical": "right_y",
+   "value": -1.0,
+   "expect": "RightStickUp"
+  },
+  {
+   "axis": "RZ",
+   "raw": -0.543,
+   "canonical": "right_y",
+   "value": 1.0,
+   "expect": "RightStickDown"
+  },
+  {
+   "axis": "X",
+   "raw": 0.2,
+   "canonical": "left_x",
+   "value": 0.3231,
+   "expect": "LeftStickRight"
+  },
+  {
+   "axis": "Z",
+   "raw": 0.5,
+   "canonical": null,
+   "value": null,
+   "expect": null
+  },
+  {
+   "axis": "GAS",
+   "raw": 1.0,
+   "canonical": null,
+   "value": null,
+   "expect": null
+  }
+ ]
+}
