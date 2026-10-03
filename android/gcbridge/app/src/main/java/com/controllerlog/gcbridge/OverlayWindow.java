@@ -37,6 +37,7 @@ final class OverlayWindow {
     private final WindowManager wm;
     private FrameLayout container;
     private PadView padView;
+    private java.util.Set<String> unavailable;
     private TextView badge;
     private WindowManager.LayoutParams params;
     private Layout layout;
@@ -67,6 +68,7 @@ final class OverlayWindow {
         container = new FrameLayout(ctx);
         padView = new PadView(ctx);
         padView.setLayout(layout);
+        padView.setUnavailable(unavailable);
         badge = new TextView(ctx);
         badge.setText("GC");
         badge.setTextColor(Color.WHITE);
@@ -131,6 +133,13 @@ final class OverlayWindow {
     void setState(Pad.State s) {
         if (padView != null) {
             padView.setState(s);
+        }
+    }
+
+    void setUnavailable(java.util.Set<String> inputs) {
+        unavailable = inputs;
+        if (padView != null) {
+            padView.setUnavailable(inputs);
         }
     }
 

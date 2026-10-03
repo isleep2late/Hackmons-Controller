@@ -62,6 +62,7 @@ public final class CaptureService extends Service implements InputHub.Listener {
     private Switch2Ble ble;
     private String overlayLayoutName;
     private String overlayFamily;
+    private String overlayDeviceKey;
     private boolean overlayUpdatePending;
     private long lastNotificationMs;
     private String lastNotificationText = "";
@@ -138,7 +139,15 @@ public final class CaptureService extends Service implements InputHub.Listener {
             startForeground(NOTIFICATION_ID, buildNotification("starting"));
         }
         hub.addListener(this);
+        InputRouter.hold(this, this);
         main.postDelayed(ticker, TICK_MS);
+    }
+
+    static java.util.Set<String> unavailableOf(InputHub.Device d) {
+        if (d == null || d.extra == null) {
+            return java.util.Collections.emptySet();
+        }
+        return PadProfile.unavailableInputs(Json.asArray(d.extra.get("unavailable")));
     }
 
     @Override
@@ -226,6 +235,7 @@ public final class CaptureService extends Service implements InputHub.Listener {
     public void onDestroy() {
         main.removeCallbacks(ticker);
         hub.removeListener(this);
+        InputRouter.release(this);
         stopRecording();
         hideOverlay();
         stopUsbCapture();
@@ -310,6 +320,8 @@ public final class CaptureService extends Service implements InputHub.Listener {
         InputHub.Device d = hub.activeDevice();
         String family = d != null ? d.family : Pad.FAMILY_GENERIC;
         String pref = prefs.getString(PREF_LAYOUT, "auto");
+        overlay.setUnavailable(unavailableOf(d));
+        overlayDeviceKey = d != null ? d.key : null;
         if (family.equals(overlayFamily) && pref.equals(overlayLayoutName)) {
             return;
         }
@@ -387,7 +399,8 @@ public final class CaptureService extends Service implements InputHub.Listener {
         // PadView copies the state and coalesces redraws itself; the layout switch (a
         // different controller became active) goes through the main thread.
         o.setState(device.state);
-        if (!device.family.equals(overlayFamily) && !overlayUpdatePending) {
+        if ((!device.family.equals(overlayFamily) || !device.key.equals(overlayDeviceKey))
+                && !overlayUpdatePending) {
             overlayUpdatePending = true;
             main.post(() -> {
                 overlayUpdatePending = false;

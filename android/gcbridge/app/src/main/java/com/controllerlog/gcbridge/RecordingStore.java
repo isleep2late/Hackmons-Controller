@@ -26,10 +26,19 @@ import java.util.Locale;
  */
 final class RecordingStore {
 
-    static final String AUTHORITY = "com.controllerlog.gcbridge.recordings";
-    static final String DOWNLOADS_SUBDIR = "GC Bridge";
-
     private RecordingStore() {
+    }
+
+    static String authority(Context ctx) {
+        return ctx.getPackageName() + ".recordings";
+    }
+
+    static String downloadsSubdir(Context ctx) {
+        return downloadsSubdir(ctx.getPackageName());
+    }
+
+    static String downloadsSubdir(String packageName) {
+        return packageName.endsWith(".dev") ? "GC Bridge DEV" : "GC Bridge";
     }
 
     static File dir(Context ctx) {
@@ -64,8 +73,8 @@ final class RecordingStore {
         return out;
     }
 
-    static Uri shareUri(File f) {
-        return new Uri.Builder().scheme(ContentResolver.SCHEME_CONTENT).authority(AUTHORITY)
+    static Uri shareUri(Context ctx, File f) {
+        return new Uri.Builder().scheme(ContentResolver.SCHEME_CONTENT).authority(authority(ctx))
                 .appendPath(f.getName()).build();
     }
 
@@ -78,13 +87,39 @@ final class RecordingStore {
                 + new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.ROOT).format(new Date(f.lastModified())) + ")";
     }
 
+    static Uri exportBytes(Context ctx, String name, String mime, byte[] data) throws IOException {
+        ContentResolver cr = ctx.getContentResolver();
+        ContentValues v = new ContentValues();
+        v.put(MediaStore.Downloads.DISPLAY_NAME, name);
+        v.put(MediaStore.Downloads.MIME_TYPE, mime);
+        v.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/" + downloadsSubdir(ctx));
+        v.put(MediaStore.Downloads.IS_PENDING, 1);
+        Uri uri = cr.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
+        if (uri == null) {
+            throw new IOException("MediaStore refused the file");
+        }
+        try (OutputStream out = cr.openOutputStream(uri)) {
+            if (out == null) {
+                throw new IOException("can't open " + uri);
+            }
+            out.write(data);
+        } catch (IOException e) {
+            cr.delete(uri, null, null);
+            throw e;
+        }
+        v.clear();
+        v.put(MediaStore.Downloads.IS_PENDING, 0);
+        cr.update(uri, v, null, null);
+        return uri;
+    }
+
     /** Copies a recording to Downloads/GC Bridge through MediaStore (no permission needed). */
     static Uri exportToDownloads(Context ctx, File f) throws IOException {
         ContentResolver cr = ctx.getContentResolver();
         ContentValues v = new ContentValues();
         v.put(MediaStore.Downloads.DISPLAY_NAME, f.getName());
         v.put(MediaStore.Downloads.MIME_TYPE, "application/octet-stream");
-        v.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/" + DOWNLOADS_SUBDIR);
+        v.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/" + downloadsSubdir(ctx));
         v.put(MediaStore.Downloads.IS_PENDING, 1);
         Uri uri = cr.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
         if (uri == null) {

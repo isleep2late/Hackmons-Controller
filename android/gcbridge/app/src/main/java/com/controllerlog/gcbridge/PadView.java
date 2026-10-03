@@ -9,8 +9,11 @@ import android.graphics.Typeface;
 import android.util.AttributeSet;
 import android.view.View;
 
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Draws a {@link Layout} for a {@link Pad.State}: the same shapes and rules as the PC overlay
@@ -27,6 +30,7 @@ public final class PadView extends View {
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.SUBPIXEL_TEXT_FLAG);
     private final Path path = new Path();
     private final RectF rect = new RectF();
+    private volatile Set<String> dimmed = Collections.emptySet();
 
     public PadView(Context context) {
         this(context, null);
@@ -49,6 +53,24 @@ public final class PadView extends View {
 
     public Layout getLayout() {
         return layout;
+    }
+
+    public void setUnavailable(Set<String> inputs) {
+        Set<String> next = inputs == null || inputs.isEmpty() ? Collections.emptySet()
+                : Collections.unmodifiableSet(new HashSet<>(inputs));
+        if (!next.equals(dimmed)) {
+            dimmed = next;
+            postInvalidateOnAnimation();
+        }
+    }
+
+    public Set<String> getUnavailable() {
+        return dimmed;
+    }
+
+    static int dim(int color) {
+        int alpha = (color >>> 24) * 30 / 100;
+        return (color & 0x00ffffff) | (alpha << 24);
     }
 
     /** Thread-safe: copies the state and schedules a redraw. */
@@ -126,12 +148,15 @@ public final class PadView extends View {
             String label = Json.str(el, "label", null);
             float labelSize = (float) Json.num(el, "label_size", fontSize);
             if ("button".equals(type)) {
-                boolean pressed = snapshot.pressed(Json.str(el, "input", ""));
-                drawShape(canvas, el, pressed ? active : idleFill, idleStroke, esw, fontSize);
+                String input = Json.str(el, "input", "");
+                boolean pressed = snapshot.pressed(input);
+                boolean off = dimmed.contains(input);
+                drawShape(canvas, el, pressed ? active : off ? dim(idleFill) : idleFill,
+                        off ? dim(idleStroke) : idleStroke, esw, fontSize);
                 if (label != null) {
                     center(el);
                     drawLabel(canvas, label, rect.centerX(), rect.centerY(), labelSize,
-                            pressed ? labelActive : labelColor);
+                            pressed ? labelActive : off ? dim(labelColor) : labelColor);
                 }
             } else if ("trigger".equals(type)) {
                 String input = Json.str(el, "input", "");

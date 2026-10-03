@@ -32,22 +32,31 @@ import android.view.WindowInsets;
 import android.widget.ArrayAdapter;
 import android.widget.AdapterView;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.RadioGroup;
+import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.lang.ref.WeakReference;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ExecutorService;
@@ -76,7 +85,13 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
     private static final int ACTION_CAPTURE = 3;
     private static final int REQ_BLE = 10;
     private static final int REQ_NOTIFICATIONS = 11;
+    private static final int REQ_IMPORT_PROFILE = 12;
     private static final long STATUS_INTERVAL_MS = 1000;
+    private static final long DEVICE_REFRESH_MS = 250;
+    private static final long LOG_UI_INTERVAL_MS = 100;
+    private static final long CALIB_TICK_MS = 100;
+    private static final int MAX_PROFILE_BYTES = 1 << 20;
+    static final String EXTRA_HARNESS_DIAG = "gcbridge.harness.diag";
 
     private static final int MAX_KEY_HISTORY = 30;
     private static final int MAX_LOG_CHARS = 60_000;
@@ -160,6 +175,50 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
         liveView.setText(buildLiveText());
     };
 
+    private boolean started;
+    private boolean logDirty;
+    private boolean logUpdatePending;
+    private final Runnable logUpdater = () -> {
+        logUpdatePending = false;
+        if (started) {
+            usbLogView.setText(usbLog);
+            logDirty = false;
+        }
+    };
+    private final Set<Integer> gameDeviceIds = new HashSet<>();
+    private final Runnable devicesRefresher = () -> {
+        refreshDevices();
+        refreshControllers();
+    };
+
+    private LinearLayout controllersList;
+    private View calibPanel;
+    private TextView calibTitle;
+    private TextView calibPrompt;
+    private TextView calibMessage;
+    private TextView calibAnswers;
+    private Button calibSkip;
+    private Button calibRedo;
+    private Button calibBack;
+    private Button calibYes;
+    private Button calibNo;
+    private Button calibSave;
+    private PadCalibration calibration;
+    private int calibDeviceId = Integer.MIN_VALUE;
+    private String calibName = "";
+    private boolean calibLiveApplied;
+    private final Runnable calibTicker = new Runnable() {
+        @Override
+        public void run() {
+            if (calibration == null) {
+                return;
+            }
+            calibration.tick(SystemClock.uptimeMillis());
+            updateCalibUi();
+            main.postDelayed(this, CALIB_TICK_MS);
+        }
+    };
+
     private final BroadcastReceiver usbReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -236,10 +295,10 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
         });
         findViewById(R.id.btn_exit).setOnClickListener(v -> finishAndRemoveTask());
 
+        InputRouter.ensureSettings(this);
         setUpCaptureControls();
+        setUpControllerControls();
         registerUsbReceiver();
-        inputManager.registerInputDeviceListener(this, main);
-        hub.addListener(this);
 
         log("GC Bridge " + appVersion() + " on " + Build.MANUFACTURER + " " + Build.MODEL
                 + ", Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")");
@@ -247,10 +306,45 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
             log("WARNING: this device doesn't report USB host support");
         }
         refreshStatus(true);
-        refreshDevices();
         if (savedInstanceState == null) {
             handleIntent(getIntent());
         }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        started = true;
+        inputManager.registerInputDeviceListener(this, main);
+        hub.addListener(this);
+        InputRouter.hold(this, this);
+        refreshDevices();
+        refreshControllers();
+        refreshCaptureUi();
+        if (logDirty) {
+            usbLogView.setText(usbLog);
+            logDirty = false;
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        started = false;
+        if (calibration != null) {
+            cancelCalibration("left the screen");
+        }
+        inputManager.unregisterInputDeviceListener(this);
+        hub.removeListener(this);
+        InputRouter.release(this);
+        main.removeCallbacks(devicesRefresher);
+        main.removeCallbacks(statusUpdater);
+        statusUpdatePending = false;
+        main.removeCallbacks(liveUpdater);
+        liveUpdatePending = false;
+        main.removeCallbacks(logUpdater);
+        logUpdatePending = false;
+        main.removeCallbacks(calibTicker);
+        super.onStop();
     }
 
     @Override
@@ -296,9 +390,7 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
 
     @Override
     protected void onDestroy() {
-        hub.removeListener(this);
         unregisterReceiver(usbReceiver);
-        inputManager.unregisterInputDeviceListener(this);
         main.removeCallbacksAndMessages(null);
         // A new instance (e.g. launched while this one was finishing) may already be current.
         if (current.get() == this) {
@@ -308,6 +400,11 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
     }
 
     private void handleIntent(Intent intent) {
+        if (intent != null && getPackageName().endsWith(".dev")
+                && intent.getBooleanExtra(EXTRA_HARNESS_DIAG, false)) {
+            main.postDelayed(() -> exportDiagnostics(false), 500);
+            return;
+        }
         if (intent == null || !UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(intent.getAction())) {
             return;
         }
@@ -504,14 +601,18 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
             int cut = usbLog.indexOf("\n", usbLog.length() - MAX_LOG_CHARS);
             usbLog.delete(0, cut < 0 ? usbLog.length() - MAX_LOG_CHARS : cut + 1);
         }
-        usbLogView.setText(usbLog);
+        logDirty = true;
+        if (started && !logUpdatePending) {
+            logUpdatePending = true;
+            main.postDelayed(logUpdater, LOG_UI_INTERVAL_MS);
+        }
     }
 
     private void copyAll() {
         String text = statusView.getText() + "\n\n== Live input ==\n" + liveView.getText()
                 + "\n\n== Key events ==\n" + keysView.getText()
                 + "\n\n== USB log ==\n" + usbLog
-                + "\n== Input devices ==\n" + devicesView.getText() + "\n";
+                + "\n== Input devices ==\n" + devicesView.getText() + "\n\n" + diagnosticsText();
         ClipboardManager cm = getSystemService(ClipboardManager.class);
         cm.setPrimaryClip(ClipData.newPlainText("GC Bridge log", text));
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
@@ -537,42 +638,60 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
         int[] ids = inputManager.getInputDeviceIds();
         StringBuilder sb = new StringBuilder();
         sb.append(ids.length).append(" device(s); * = gamepad / joystick / Nintendo\n");
+        gameDeviceIds.clear();
         for (int id : ids) {
             InputDevice d = InputDevice.getDevice(id);
             if (d != null) {
                 sb.append(InputDiagnostics.describe(d));
+                if (InputRouter.isGameDevice(d)) {
+                    gameDeviceIds.add(id);
+                }
             }
         }
         devicesView.setText(sb.toString());
     }
 
+    private void scheduleDevicesRefresh() {
+        main.removeCallbacks(devicesRefresher);
+        if (started) {
+            main.postDelayed(devicesRefresher, DEVICE_REFRESH_MS);
+        }
+    }
+
     @Override
     public void onInputDeviceAdded(int deviceId) {
         InputDevice d = InputDevice.getDevice(deviceId);
-        log("InputDevice added: " + (d != null ? InputDiagnostics.shortSummary(d) : "#" + deviceId));
-        refreshDevices();
+        if (InputRouter.isGameDevice(d)) {
+            log("InputDevice added: " + InputDiagnostics.shortSummary(d));
+        }
+        scheduleDevicesRefresh();
     }
 
     @Override
     public void onInputDeviceRemoved(int deviceId) {
-        log("InputDevice removed: #" + deviceId);
-        InputRouter.deviceRemoved(deviceId);
+        if (gameDeviceIds.contains(deviceId)) {
+            log("InputDevice removed: #" + deviceId);
+        }
         if (deviceId == liveDeviceId) {
             liveDeviceLabel += " (removed)";
             scheduleLiveUpdate();
         }
-        refreshDevices();
+        if (calibration != null && deviceId == calibDeviceId) {
+            cancelCalibration("the controller went away");
+        }
+        scheduleDevicesRefresh();
     }
 
     @Override
     public void onInputDeviceChanged(int deviceId) {
         InputDevice d = InputDevice.getDevice(deviceId);
-        log("InputDevice changed: " + (d != null ? InputDiagnostics.shortSummary(d) : "#" + deviceId));
-        InputRouter.deviceChanged(deviceId);
+        if (InputRouter.isGameDevice(d)) {
+            log("InputDevice changed: " + InputDiagnostics.shortSummary(d));
+        }
         if (deviceId == liveDeviceId) {
             liveDeviceId = Integer.MIN_VALUE; // re-read its axes on the next event
         }
-        refreshDevices();
+        scheduleDevicesRefresh();
     }
 
     // --- live events ---------------------------------------------------------------------------
@@ -589,8 +708,21 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
      */
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (AndroidInput.isSystemVolumeKey(event.getKeyCode())) {
+            return super.dispatchKeyEvent(event);
+        }
         InputDevice device = event.getDevice();
         boolean game = isGameSource(event.getSource()) || InputDiagnostics.isGameDevice(device);
+        if (calibration != null && game && event.getDeviceId() == calibDeviceId && !calibration.isLive()) {
+            int action = event.getAction();
+            if ((action == KeyEvent.ACTION_DOWN || action == KeyEvent.ACTION_UP) && event.getRepeatCount() == 0) {
+                calibration.onKey(event.getScanCode(), event.getKeyCode(), action == KeyEvent.ACTION_DOWN,
+                        SystemClock.uptimeMillis());
+                onDeviceKey(event, device);
+                updateCalibUi();
+            }
+            return true;
+        }
         boolean external = device != null && device.isExternal() && !device.isVirtual();
         if (game || external) {
             onDeviceKey(event, device);
@@ -642,6 +774,18 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
         }
         if (event.getActionMasked() == MotionEvent.ACTION_MOVE) {
             onDeviceMotion(event, device);
+        }
+        if (calibration != null && event.getDeviceId() == calibDeviceId && !calibration.isLive()) {
+            if (event.getActionMasked() == MotionEvent.ACTION_MOVE && device != null) {
+                long now = SystemClock.uptimeMillis();
+                for (InputDevice.MotionRange r : device.getMotionRanges()) {
+                    if ((r.getSource() & InputDevice.SOURCE_CLASS_JOYSTICK) != 0) {
+                        calibration.onAxis(r.getAxis(), event.getAxisValue(r.getAxis()), now);
+                    }
+                }
+                updateCalibUi();
+            }
+            return true;
         }
         InputRouter.onMotion(event);
         return true;
@@ -927,7 +1071,7 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
         List<File> files = RecordingStore.list(this);
         if (files.isEmpty()) {
             new AlertDialog.Builder(this).setTitle(R.string.recordings_title)
-                    .setMessage(getString(R.string.recordings_none) + "\n\n" + getString(R.string.recordings_where))
+                    .setMessage(getString(R.string.recordings_none) + "\n\n" + getString(R.string.recordings_where, getPackageName()))
                     .setPositiveButton(android.R.string.ok, null).show();
             return;
         }
@@ -944,21 +1088,21 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
         String[] actions = {getString(R.string.recordings_share), getString(R.string.recordings_export),
                 getString(R.string.recordings_delete)};
         new AlertDialog.Builder(this).setTitle(f.getName())
-                .setMessage(getString(R.string.recordings_where))
+                .setMessage(getString(R.string.recordings_where, getPackageName()))
                 .setItems(actions, (d, which) -> {
                     if (which == 0) {
                         Intent send = new Intent(Intent.ACTION_SEND)
                                 .setType("application/octet-stream")
-                                .putExtra(Intent.EXTRA_STREAM, RecordingStore.shareUri(f))
+                                .putExtra(Intent.EXTRA_STREAM, RecordingStore.shareUri(this, f))
                                 .putExtra(Intent.EXTRA_SUBJECT, f.getName())
                                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                         startActivity(Intent.createChooser(send, f.getName()));
                     } else if (which == 1) {
                         try {
                             Uri uri = RecordingStore.exportToDownloads(this, f);
-                            log("Copied to Downloads/" + RecordingStore.DOWNLOADS_SUBDIR + "/" + f.getName()
+                            log("Copied to Downloads/" + RecordingStore.downloadsSubdir(this) + "/" + f.getName()
                                     + " (" + uri + ")");
-                            Toast.makeText(this, "Downloads/" + RecordingStore.DOWNLOADS_SUBDIR + "/" + f.getName(),
+                            Toast.makeText(this, "Downloads/" + RecordingStore.downloadsSubdir(this) + "/" + f.getName(),
                                     Toast.LENGTH_LONG).show();
                         } catch (IOException | RuntimeException e) {
                             log("ERROR copying to Downloads: " + e);
@@ -977,6 +1121,7 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
         InputHub.Device d = hub.activeDevice();
         String family = d != null ? d.family : Pad.FAMILY_GENERIC;
         String pref = prefs.getString(CaptureService.PREF_LAYOUT, "auto");
+        padPreview.setUnavailable(CaptureService.unavailableOf(d));
         if (family.equals(previewFamily) && pref.equals(previewLayoutPref) && padPreview.getLayout() != null) {
             return;
         }
@@ -1037,6 +1182,312 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
             accessibilityStatus.setText(R.string.accessibility_enabled_not_connected);
         } else {
             accessibilityStatus.setText(R.string.accessibility_off);
+        }
+    }
+
+    private void setUpControllerControls() {
+        controllersList = findViewById(R.id.controllers_list);
+        calibPanel = findViewById(R.id.calib_panel);
+        calibTitle = findViewById(R.id.calib_title);
+        calibPrompt = findViewById(R.id.calib_prompt);
+        calibMessage = findViewById(R.id.calib_message);
+        calibAnswers = findViewById(R.id.calib_answers);
+        calibSkip = findViewById(R.id.calib_skip);
+        calibRedo = findViewById(R.id.calib_redo);
+        calibBack = findViewById(R.id.calib_back);
+        calibYes = findViewById(R.id.calib_yes);
+        calibNo = findViewById(R.id.calib_no);
+        calibSave = findViewById(R.id.calib_save);
+        findViewById(R.id.btn_diagnostics).setOnClickListener(v -> exportDiagnostics(true));
+        findViewById(R.id.btn_import_profile).setOnClickListener(v -> {
+            Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                    .setType("*/*");
+            try {
+                startActivityForResult(pick, REQ_IMPORT_PROFILE);
+            } catch (RuntimeException e) {
+                log("Can't open the file picker: " + e);
+            }
+        });
+        calibSkip.setOnClickListener(v -> calibAction(c -> c.skip(SystemClock.uptimeMillis())));
+        calibRedo.setOnClickListener(v -> calibAction(c -> c.redo(SystemClock.uptimeMillis())));
+        calibBack.setOnClickListener(v -> calibAction(c -> c.back(SystemClock.uptimeMillis())));
+        calibYes.setOnClickListener(v -> calibAction(c -> c.answerBoth(true, SystemClock.uptimeMillis())));
+        calibNo.setOnClickListener(v -> calibAction(c -> c.answerBoth(false, SystemClock.uptimeMillis())));
+        calibSave.setOnClickListener(v -> saveCalibration());
+        findViewById(R.id.calib_cancel).setOnClickListener(v -> cancelCalibration("cancelled"));
+    }
+
+    private interface CalibStep {
+        void apply(PadCalibration c);
+    }
+
+    private void calibAction(CalibStep step) {
+        if (calibration != null) {
+            step.apply(calibration);
+            updateCalibUi();
+        }
+    }
+
+    private Button smallButton(String text, View.OnClickListener l) {
+        Button b = new Button(this, null, android.R.attr.buttonBarButtonStyle);
+        b.setText(text);
+        b.setAllCaps(false);
+        b.setOnClickListener(l);
+        b.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        return b;
+    }
+
+    private void refreshControllers() {
+        if (controllersList == null) {
+            return;
+        }
+        controllersList.removeAllViews();
+        PadSettings settings = InputRouter.settings();
+        int shown = 0;
+        for (int id : inputManager.getInputDeviceIds()) {
+            InputDevice d = InputDevice.getDevice(id);
+            if (!InputRouter.isGameDevice(d)) {
+                continue;
+            }
+            shown++;
+            PadIdentity identity = InputRouter.identityOf(d, id);
+            InputRouter.Entry en = InputRouter.entryFor(id);
+            PadClass cls = en != null ? en.cls : InputRouter.classOf(identity);
+            String key = identity.deviceKey();
+            String drawAs = settings.drawAs.getOrDefault(key, "auto");
+            boolean hasProfile = settings.profiles.containsKey(key);
+            TextView info = new TextView(this);
+            info.setTypeface(android.graphics.Typeface.MONOSPACE);
+            info.setTextSize(12);
+            info.setTextIsSelectable(true);
+            info.setText(String.format(Locale.ROOT, "#%d \"%s\" %s%n%s%nroutes: %s%s", id, identity.name,
+                    identity.idsKey(), cls.summary(),
+                    InputRouter.describeRoutes(en != null ? en.routes : AndroidInput.routes(cls, identity)),
+                    hasProfile ? "\nprofile saved" : ""));
+            info.setPadding(0, 12, 0, 0);
+            controllersList.addView(info);
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.addView(smallButton(getString(cls.ignored ? R.string.btn_unignore : R.string.btn_ignore), v -> {
+                PadSettings.setIgnored(this, key, !cls.ignored);
+                InputRouter.reloadSettings(this);
+                log((cls.ignored ? "Stopped ignoring " : "Ignoring ") + identity.name);
+                refreshControllers();
+            }));
+            row.addView(smallButton(getString(R.string.btn_draw_as, drawAs), v -> chooseDrawAs(key, identity.name)));
+            row.addView(smallButton(getString(R.string.btn_setup), v -> startCalibration(id, identity, cls)));
+            controllersList.addView(row);
+            if (hasProfile) {
+                LinearLayout row2 = new LinearLayout(this);
+                row2.setOrientation(LinearLayout.HORIZONTAL);
+                row2.addView(smallButton(getString(R.string.btn_export_profile), v -> exportProfile(key)));
+                row2.addView(smallButton(getString(R.string.btn_delete_profile), v -> {
+                    PadSettings.saveProfile(this, key, null);
+                    InputRouter.reloadSettings(this);
+                    log("Deleted the profile of " + identity.name);
+                    refreshControllers();
+                }));
+                controllersList.addView(row2);
+            }
+        }
+        if (shown == 0) {
+            TextView none = new TextView(this);
+            none.setText(R.string.controllers_none);
+            controllersList.addView(none);
+        }
+    }
+
+    private void chooseDrawAs(String key, String name) {
+        String[] names = LayoutStore.names(this);
+        String[] entries = new String[names.length + 1];
+        entries[0] = "auto";
+        System.arraycopy(names, 0, entries, 1, names.length);
+        new AlertDialog.Builder(this).setTitle(name)
+                .setItems(entries, (dlg, which) -> {
+                    PadSettings.setDrawAs(this, key, entries[which]);
+                    InputRouter.reloadSettings(this);
+                    previewFamily = null;
+                    updatePreviewLayout();
+                    log("Draw " + name + " as " + entries[which]);
+                    refreshControllers();
+                })
+                .setNegativeButton(android.R.string.cancel, null).show();
+    }
+
+    private void startCalibration(int deviceId, PadIdentity identity, PadClass cls) {
+        if (calibration != null) {
+            cancelCalibration(null);
+        }
+        String model = cls.model != null ? cls.model
+                : PadClassifier.hasAny(identity, PadClassifier.GC_TOKENS) ? PadClass.MODEL_GAMECUBE : null;
+        calibration = new PadCalibration(identity, model, SystemClock.uptimeMillis());
+        calibDeviceId = deviceId;
+        calibName = identity.name;
+        calibLiveApplied = false;
+        calibPanel.setVisibility(View.VISIBLE);
+        log("Set up " + identity.name + " (" + (model != null ? model : "by position") + ")");
+        main.removeCallbacks(calibTicker);
+        main.post(calibTicker);
+        updateCalibUi();
+        View root = findViewById(R.id.root);
+        if (root instanceof ScrollView) {
+            root.post(() -> ((ScrollView) root).smoothScrollTo(0, calibPanel.getTop()));
+        }
+    }
+
+    private String madeText() {
+        return LocalDate.now() + " on " + Build.MANUFACTURER + " " + Build.MODEL;
+    }
+
+    private void updateCalibUi() {
+        PadCalibration c = calibration;
+        if (c == null || calibPanel == null) {
+            return;
+        }
+        if (c.isLive() && !calibLiveApplied) {
+            calibLiveApplied = true;
+            PadSettings now = InputRouter.settings();
+            Map<String, Map<String, Object>> profiles = new LinkedHashMap<>(now.profiles);
+            profiles.put(c.deviceKey(), c.profile(madeText()));
+            InputRouter.setSettings(new PadSettings(profiles, now.ignore, now.drawAs));
+            previewFamily = null;
+            updatePreviewLayout();
+        }
+        calibTitle.setText(getString(R.string.calib_title, calibName, c.stepIndex() + 1, c.stepCount()));
+        long left = c.remainingMs(SystemClock.uptimeMillis());
+        calibPrompt.setText(c.prompt() + (left >= 0 ? String.format(Locale.ROOT, "  (%d s)", (left + 999) / 1000) : ""));
+        String msg = c.message();
+        if (c.isLive()) {
+            List<?> unavailable = Json.asArray(c.profile(null).get("unavailable"));
+            if (unavailable != null && !unavailable.isEmpty()) {
+                List<String> names = new ArrayList<>();
+                for (Object o : unavailable) {
+                    names.add(String.valueOf(o));
+                }
+                msg = getString(R.string.calib_finish_unavailable, String.join(", ", names));
+            }
+        }
+        calibMessage.setText(msg);
+        calibAnswers.setText(String.join("\n", c.summary()));
+        boolean confirm = c.awaitingConfirm();
+        calibYes.setVisibility(confirm ? View.VISIBLE : View.GONE);
+        calibNo.setVisibility(confirm ? View.VISIBLE : View.GONE);
+        calibSkip.setVisibility(confirm || c.isLive() ? View.GONE : View.VISIBLE);
+        calibRedo.setVisibility(confirm ? View.GONE : View.VISIBLE);
+        calibBack.setVisibility(confirm ? View.GONE : View.VISIBLE);
+        calibSave.setVisibility(c.isLive() ? View.VISIBLE : View.GONE);
+    }
+
+    private void closeCalibration() {
+        calibration = null;
+        calibDeviceId = Integer.MIN_VALUE;
+        main.removeCallbacks(calibTicker);
+        if (calibPanel != null) {
+            calibPanel.setVisibility(View.GONE);
+        }
+    }
+
+    private void cancelCalibration(String why) {
+        boolean restore = calibLiveApplied;
+        closeCalibration();
+        calibLiveApplied = false;
+        if (restore) {
+            InputRouter.reloadSettings(this);
+        }
+        if (why != null) {
+            log("Set up stopped: " + why);
+        }
+        previewFamily = null;
+        updatePreviewLayout();
+    }
+
+    private void saveCalibration() {
+        PadCalibration c = calibration;
+        if (c == null || !c.isLive()) {
+            return;
+        }
+        Map<String, Object> profile = c.profile(madeText());
+        PadSettings.saveProfile(this, c.deviceKey(), profile);
+        closeCalibration();
+        calibLiveApplied = false;
+        InputRouter.reloadSettings(this);
+        log("Saved a profile for " + calibName + " (" + c.deviceKey() + ")");
+        refreshControllers();
+    }
+
+    private void exportProfile(String key) {
+        Map<String, Object> profile = InputRouter.settings().profiles.get(key);
+        if (profile == null) {
+            return;
+        }
+        String name = PadProfile.fileName(profile, LocalDate.now().toString());
+        try {
+            Uri uri = RecordingStore.exportBytes(this, name, "application/json",
+                    Json.write(profile).getBytes(StandardCharsets.UTF_8));
+            log("Profile copied to Downloads/" + RecordingStore.downloadsSubdir(this) + "/" + name + " (" + uri + ")");
+            Toast.makeText(this, "Downloads/" + RecordingStore.downloadsSubdir(this) + "/" + name,
+                    Toast.LENGTH_LONG).show();
+        } catch (IOException | RuntimeException e) {
+            log("ERROR exporting the profile: " + e);
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQ_IMPORT_PROFILE || resultCode != RESULT_OK || data == null || data.getData() == null) {
+            return;
+        }
+        try (InputStream in = getContentResolver().openInputStream(data.getData())) {
+            if (in == null) {
+                throw new IOException("can't open " + data.getData());
+            }
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) > 0) {
+                bos.write(buf, 0, n);
+                if (bos.size() > MAX_PROFILE_BYTES) {
+                    throw new IOException("the file is larger than 1 MB");
+                }
+            }
+            Map<String, Object> profile = Json.asObject(Json.parse(new String(bos.toByteArray(),
+                    StandardCharsets.UTF_8)));
+            String key = profile != null ? PadProfile.matchKey(profile) : null;
+            if (key == null || !key.startsWith("sig:") || Json.asObject(profile.get("buttons")) == null) {
+                throw new IOException("not a controller profile (needs match.key and buttons)");
+            }
+            PadSettings.saveProfile(this, key, profile);
+            InputRouter.reloadSettings(this);
+            log("Imported a profile for " + key);
+            refreshControllers();
+        } catch (IOException | RuntimeException e) {
+            log("ERROR importing the profile: " + e.getMessage());
+        }
+    }
+
+    private String diagnosticsText() {
+        InputHub.Device d = hub.activeDevice();
+        return ControllerDiagnostics.build(this, captureStatus != null ? captureStatus.getText().toString() : "",
+                d != null ? d.shortName() + " [" + d.family + "] " + d.key : "none",
+                prefs.getString(CaptureService.PREF_LAYOUT, "auto"));
+    }
+
+    private void exportDiagnostics(boolean toClipboard) {
+        String text = diagnosticsText();
+        ControllerDiagnostics.logChunks(text);
+        try {
+            File f = ControllerDiagnostics.write(this, text);
+            log("Diagnostics written to " + f);
+        } catch (IOException | RuntimeException e) {
+            log("ERROR writing diagnostics: " + e);
+        }
+        if (toClipboard) {
+            ClipboardManager cm = getSystemService(ClipboardManager.class);
+            cm.setPrimaryClip(ClipData.newPlainText("GC Bridge controller diagnostics", text));
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                Toast.makeText(this, R.string.copied, Toast.LENGTH_SHORT).show();
+            }
         }
     }
 
