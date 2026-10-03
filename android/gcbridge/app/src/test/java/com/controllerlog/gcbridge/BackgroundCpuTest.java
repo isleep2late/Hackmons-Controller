@@ -1,61 +1,20 @@
 package com.controllerlog.gcbridge;
 
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
 import java.io.IOException;
-import java.nio.file.Path;
 
 public class BackgroundCpuTest {
 
     private static String source(String file) throws IOException {
-        Path root = TestFiles.root();
-        assertNotNull(root);
-        String text = TestFiles.read(root.resolve("android/gcbridge/app/src/main/java/com/controllerlog/gcbridge")
-                .resolve(file));
-        StringBuilder sb = new StringBuilder();
-        boolean block = false;
-        for (String line : text.split("\n")) {
-            String t = line.trim();
-            if (block) {
-                if (t.contains("*/")) {
-                    block = false;
-                }
-                continue;
-            }
-            if (t.startsWith("/*")) {
-                block = !t.contains("*/");
-                continue;
-            }
-            if (t.startsWith("//") || t.startsWith("*")) {
-                continue;
-            }
-            int c = line.indexOf("//");
-            sb.append(c >= 0 && !line.substring(0, c).contains("\"") ? line.substring(0, c) : line).append('\n');
-        }
-        return sb.toString();
+        return TestFiles.javaSource(file);
     }
 
     private static String body(String src, String signature) {
-        int at = src.indexOf(signature);
-        assertTrue("no " + signature, at >= 0);
-        int open = src.indexOf('{', at);
-        int depth = 0;
-        for (int i = open; i < src.length(); i++) {
-            char ch = src.charAt(i);
-            if (ch == '{') {
-                depth++;
-            } else if (ch == '}') {
-                depth--;
-                if (depth == 0) {
-                    return src.substring(open, i + 1);
-                }
-            }
-        }
-        throw new AssertionError("unbalanced " + signature);
+        return TestFiles.body(src, signature);
     }
 
     @Test

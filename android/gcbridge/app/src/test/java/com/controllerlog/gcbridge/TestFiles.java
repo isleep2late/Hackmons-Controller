@@ -33,6 +33,57 @@ final class TestFiles {
         return new String(Files.readAllBytes(p), StandardCharsets.UTF_8);
     }
 
+    static String javaSource(String file) throws IOException {
+        Path root = root();
+        if (root == null) {
+            throw new IOException("repository root unknown");
+        }
+        String text = read(root.resolve("android/gcbridge/app/src/main/java/com/controllerlog/gcbridge")
+                .resolve(file));
+        StringBuilder sb = new StringBuilder();
+        boolean block = false;
+        for (String line : text.split("\n")) {
+            String t = line.trim();
+            if (block) {
+                if (t.contains("*/")) {
+                    block = false;
+                }
+                continue;
+            }
+            if (t.startsWith("/*")) {
+                block = !t.contains("*/");
+                continue;
+            }
+            if (t.startsWith("//") || t.startsWith("*")) {
+                continue;
+            }
+            int c = line.indexOf("//");
+            sb.append(c >= 0 && !line.substring(0, c).contains("\"") ? line.substring(0, c) : line).append('\n');
+        }
+        return sb.toString();
+    }
+
+    static String body(String src, String signature) {
+        int at = src.indexOf(signature);
+        if (at < 0) {
+            throw new AssertionError("no " + signature);
+        }
+        int open = src.indexOf('{', at);
+        int depth = 0;
+        for (int i = open; i < src.length(); i++) {
+            char ch = src.charAt(i);
+            if (ch == '{') {
+                depth++;
+            } else if (ch == '}') {
+                depth--;
+                if (depth == 0) {
+                    return src.substring(open, i + 1);
+                }
+            }
+        }
+        throw new AssertionError("unbalanced " + signature);
+    }
+
     static byte[] hex(String s) {
         String h = s.replace(" ", "");
         byte[] out = new byte[h.length() / 2];
