@@ -187,6 +187,48 @@ def test_profile_switch2_gamecube_standard_hid():
     assert pro.buttons[0x130] == "south" and 0x2c0 not in pro.buttons
 
 
+def test_profile_thor_ayn_gamecube_copy():
+    dev = node("thor_ayn_info.txt", "/dev/input/event12")
+    assert dev.is_gamepad and dev.family == "gamecube" and dev.sdl_type_guess == "gamecube"
+    assert ab.is_ayn_copy(dev) and ab.is_switch2_standard(dev)
+    p = build_profile(dev)
+    face = {0x130: "west", 0x131: "south", 0x132: "north", 0x133: "east"}
+    assert {c: p.buttons[c] for c in face} == face
+    assert p.buttons[0x134] == "right_trigger" and p.buttons[0x135] == "right_shoulder"
+    assert p.buttons[0x13c] == "left_trigger" and p.buttons[0x13d] == "left_shoulder"
+    assert p.buttons[0x136] == "start"
+    assert [p.buttons[c] for c in (0x138, 0x139, 0x13a, 0x13b)] == ["dpad_down", "dpad_right", "dpad_left", "dpad_up"]
+    assert set(p.axes) == {ABS_X, ABS_Y, ABS_RZ}
+    assert not p.axes[ABS_X].invert and p.axes[ABS_Y].invert and p.axes[ABS_RZ].invert
+    assert p.axes[ABS_RZ].target == "right_y"
+    assert (p.axes[ABS_X].scale, p.axes[ABS_Y].scale, p.axes[ABS_RZ].scale) == (0.598, 0.598, 0.547)
+    assert p.to_json()["axes"]["0x05"] == {"to": "right_y", "scale": 0.547, "invert": True}
+    odin = node("thor_ayn_info.txt", "/dev/input/event9")
+    assert not ab.is_ayn_copy(odin) and not ab.is_switch2_standard(odin) and odin.family == "generic"
+    po = build_profile(odin)
+    assert po.buttons[0x130] == "south" and po.axes[ABS_Z].target == "right_x"
+    assert not po.axes[ABS_Y].invert and po.axes[ABS_Y].scale == 1.0
+    mouse = node("thor_ayn_info.txt", "/dev/input/event10")
+    assert not mouse.is_gamepad and not ab.is_ayn_copy(mouse)
+
+
+def test_mapper_thor_ayn_copy_scales_and_flips():
+    dev = node("thor_ayn_info.txt", "/dev/input/event12")
+    m = EvdevMapper(build_profile(dev), dev)
+    m.load(dev)
+    m.feed(3, ABS_Y, 19295)
+    m.feed(3, ABS_RZ, -17791)
+    m.feed(1, 0x138, 1)
+    m.feed(1, 0x134, 1)
+    got = dict(((k, i), v) for k, i, v in m.sync())
+    assert got[(AXIS, A["left_y"])] == -round(scale_stick(19295, dev.abs[ABS_Y]) / 0.598)
+    assert got[(AXIS, A["right_y"])] == -round(scale_stick(-17791, dev.abs[ABS_RZ]) / 0.547) > 32000
+    assert got[(BUTTON, B["dpad_down"])] == 1
+    assert got[(AXIS, A["right_trigger"])] == 32767
+    m.feed(3, ABS_X, 32767)
+    assert dict(((k, i), v) for k, i, v in m.sync())[(AXIS, A["left_x"])] == 32767
+
+
 def test_profile_xbox_bluetooth():
     p = build_profile(node("xbox_bt_info.txt", "/dev/input/event5"))
     assert p.family == "xbox"

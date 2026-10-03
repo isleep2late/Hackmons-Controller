@@ -219,6 +219,7 @@ _FAMILY_BY_VENDOR = {VENDOR_SONY: FAMILY_PLAYSTATION, VENDOR_NINTENDO: FAMILY_SW
                      VENDOR_MICROSOFT: FAMILY_XBOX}
 _FAMILY_BY_NAME = ((re.compile(r"xbox", re.I), FAMILY_XBOX),
                    (re.compile(r"dualsense|dualshock|playstation|\bps[345]\b", re.I), FAMILY_PLAYSTATION),
+                   (re.compile(r"gamecube", re.I), FAMILY_GAMECUBE),
                    (re.compile(r"nintendo|joy-?con|pro controller", re.I), FAMILY_SWITCH))
 _SDL_TYPE_GUESS = {
     (VENDOR_SONY, 0x0268): "ps3", (VENDOR_SONY, 0x05c4): "ps4", (VENDOR_SONY, 0x09cc): "ps4",
@@ -292,6 +293,8 @@ class EvdevDevice:
 
     @property
     def sdl_type_guess(self) -> str:
+        if is_ayn_copy(self):
+            return _SDL_TYPE_GUESS[(VENDOR_NINTENDO, switch2_standard_product(self) or SWITCH2_PID_GAMECUBE)]
         t = _SDL_TYPE_GUESS.get((self.vendor, self.product))
         if t:
             return t
@@ -526,6 +529,7 @@ class AxisMap:
 
     target: str
     invert: bool = False
+    scale: float = 1.0
 
 
 @dataclass
@@ -541,8 +545,16 @@ class Profile:
     def to_json(self) -> dict[str, Any]:
         return {"name": self.name, "family": self.family, "apply_flat": self.apply_flat,
                 "buttons": {f"0x{c:03x}": t for c, t in sorted(self.buttons.items())},
-                "axes": {f"0x{c:02x}": ({"to": a.target, "invert": True} if a.invert else a.target)
-                         for c, a in sorted(self.axes.items())}}
+                "axes": {f"0x{c:02x}": _axis_json(a) for c, a in sorted(self.axes.items())}}
+
+
+def _axis_json(a: "AxisMap") -> Any:
+    if a.scale != 1.0:
+        out: dict[str, Any] = {"to": a.target, "scale": a.scale}
+        if a.invert:
+            out["invert"] = True
+        return out
+    return {"to": a.target, "invert": True} if a.invert else a.target
 
 
 _TRIGGERS = ("left_trigger", "right_trigger")
@@ -621,10 +633,36 @@ def switch2_standard_keys(product: int) -> dict[int, str]:
     return out
 
 
+VENDOR_AYN, PRODUCT_AYN = 0x2020, 0x0111
+AYN_SPANS = {SWITCH2_PID_GAMECUBE: (0.598, 0.547), SWITCH2_PID_PRO: (0.786, 0.786)}
+_GC_NAME = re.compile(r"(?<![a-z0-9])gamecube(?![a-z0-9])", re.I)
+_PRO_NAME = re.compile(r"(?<![a-z0-9])(pro controller|switch 2 pro|pro 2)(?![a-z0-9])", re.I)
+
+
+def _norm_name(name: str) -> str:
+    return " ".join(name.lower().split())
+
+
+def is_ayn_copy(dev: "EvdevDevice") -> bool:
+    if (dev.vendor, dev.product) != (VENDOR_AYN, PRODUCT_AYN):
+        return False
+    name = _norm_name(dev.name)
+    return bool(_GC_NAME.search(name) or _PRO_NAME.search(name))
+
+
+def switch2_standard_product(dev: "EvdevDevice") -> int | None:
+    if BTN_C not in dev.keys:
+        return None
+    if dev.vendor == VENDOR_NINTENDO and dev.product in _SWITCH2_STANDARD_TARGETS:
+        return dev.product
+    if is_ayn_copy(dev):
+        return SWITCH2_PID_GAMECUBE if _GC_NAME.search(_norm_name(dev.name)) else SWITCH2_PID_PRO
+    return None
+
+
 def is_switch2_standard(dev: "EvdevDevice") -> bool:
     """A Switch 2 GameCube / Pro pad handled by hid-generic (BTN_C = report button 3)."""
-    return (dev.vendor == VENDOR_NINTENDO and dev.product in _SWITCH2_STANDARD_TARGETS
-            and BTN_C in dev.keys)
+    return switch2_standard_product(dev) is not None
 
 
 def _stickiness(a: AbsInfo) -> int:
@@ -692,12 +730,16 @@ def _assign_axes(dev: EvdevDevice, face: str) -> dict[int, AxisMap]:
 def _parse_axis_override(spec: Any) -> AxisMap | None:
     if spec is None:
         return None
+    scale = 1.0
     if isinstance(spec, str):
         target, invert = spec, False
         if target.startswith("-"):
             target, invert = target[1:], True
     elif isinstance(spec, dict) and "to" in spec:
         target, invert = spec["to"], bool(spec.get("invert", False))
+        scale = spec.get("scale", 1.0)
+        if not isinstance(scale, (int, float)) or isinstance(scale, bool) or not 0 < scale <= 1:
+            raise ValueError(f"profile override: axis scale must be a number in (0, 1], not {scale!r}")
     else:
         raise ValueError(f"profile override: bad axis spec {spec!r} (use a name, '-name', "
                          "{'to': name, 'invert': bool} or null)")
@@ -705,7 +747,7 @@ def _parse_axis_override(spec: Any) -> AxisMap | None:
         return None
     if not isinstance(target, str) or target not in _AXIS_TARGETS:
         raise ValueError(f"profile override: unknown axis target {target!r}")
-    return AxisMap(target, invert)
+    return AxisMap(target, invert, float(scale))
 
 
 _OVERRIDE_KEYS = frozenset({"face", "swap_ab", "buttons", "axes", "apply_flat", "force_gamepad"})
@@ -776,13 +818,23 @@ def build_profile(dev: EvdevDevice, override: dict[str, Any] | None = None, *,
     if (ABS_HAT0X not in dev.abs and not dev.keys & dpad_keys
             and all(k in dev.keys for k in happy) and dev.vendor != VENDOR_SONY):
         buttons.update(zip(happy, ("dpad_left", "dpad_right", "dpad_up", "dpad_down")))
-    if is_switch2_standard(dev):
-        buttons.update(switch2_standard_keys(dev.product))
+    s2 = switch2_standard_product(dev)
+    if s2 is not None:
+        buttons.update(switch2_standard_keys(s2))
     axes = _assign_axes(dev, face)
-    if is_switch2_standard(dev):
+    if s2 is not None:
         for m in axes.values():
             if m.target in ("left_y", "right_y"):
                 m.invert = not m.invert
+    if s2 is not None and is_ayn_copy(dev):
+        left, right = AYN_SPANS[s2]
+        axes = {c: m for c, m in axes.items() if c in (ABS_X, ABS_Y, ABS_RX, ABS_RZ)}
+        if ABS_RZ in axes:
+            axes[ABS_RZ] = AxisMap("right_y", True)
+        if ABS_RX in dev.abs:
+            axes[ABS_RX] = AxisMap("right_x")
+        for c, m in axes.items():
+            m.scale = left if m.target.startswith("left") else right
     swapped = bool((nintendo_swap and fam == FAMILY_SWITCH) or override.get("swap_ab"))
     if swapped:
         buttons = {c: _SWAP.get(t, t) for c, t in buttons.items()}
@@ -866,7 +918,7 @@ class EvdevMapper:
                 self._btn.append((code, AXIS_INDEX[target], True))
             else:
                 self._btn.append((code, BUTTON_INDEX[target], False))
-        self._axes: list[tuple[int, int, AbsInfo, bool, bool]] = []  # code, idx, info, trigger, inv
+        self._axes: list[tuple[int, int, AbsInfo, bool, bool, float]] = []  # code, idx, info, trigger, inv
         self._hats: list[tuple[int, int, int, int]] = []             # code, neg, pos, centre*2
         for code, m in profile.axes.items():
             info = dev.abs.get(code, AbsInfo(0, -1, 1))
@@ -877,7 +929,7 @@ class EvdevMapper:
                 self._hats.append((code, neg, pos, info.min + info.max))
             else:
                 idx = AXIS_INDEX[m.target]
-                self._axes.append((code, idx, info, idx in (4, 5), m.invert))
+                self._axes.append((code, idx, info, idx in (4, 5), m.invert, m.scale))
         self.buttons = [0] * NUM_BUTTONS
         self.axes = [0] * NUM_AXES
 
@@ -948,7 +1000,7 @@ class EvdevMapper:
                     ax[idx] = AXIS_MAX
                 else:
                     b[idx] = 1
-        for code, idx, info, trigger, inv in self._axes:
+        for code, idx, info, trigger, inv, span in self._axes:
             v = absv.get(code)
             if v is None:
                 continue
@@ -958,6 +1010,8 @@ class EvdevMapper:
                 ax[idx] = max(ax[idx], out)
             else:
                 out = scale_stick(v, info, flat)
+                if span != 1.0:
+                    out = max(AXIS_MIN, min(AXIS_MAX, round(out / span)))
                 ax[idx] = min(AXIS_MAX, -out) if inv else out
         for code, neg, pos, c2 in self._hats:
             v = absv.get(code)
