@@ -685,13 +685,15 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
     @Override
     public void onInputDeviceChanged(int deviceId) {
         InputDevice d = InputDevice.getDevice(deviceId);
-        if (InputRouter.isGameDevice(d)) {
-            log("InputDevice changed: " + InputDiagnostics.shortSummary(d));
-        }
         if (deviceId == liveDeviceId) {
             liveDeviceId = Integer.MIN_VALUE; // re-read its axes on the next event
         }
-        scheduleDevicesRefresh();
+        if (InputRouter.isGameDevice(d) || gameDeviceIds.contains(deviceId)) {
+            if (d != null) {
+                log("InputDevice changed: " + InputDiagnostics.shortSummary(d));
+            }
+            scheduleDevicesRefresh();
+        }
     }
 
     // --- live events ---------------------------------------------------------------------------

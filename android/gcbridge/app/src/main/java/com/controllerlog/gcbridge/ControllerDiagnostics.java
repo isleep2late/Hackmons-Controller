@@ -19,7 +19,9 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
 
@@ -75,15 +77,17 @@ final class ControllerDiagnostics {
             PadIdentity identity = InputRouter.identityOf(d, id);
             InputRouter.Entry entry = InputRouter.entryFor(id);
             PadClass cls = entry != null ? entry.cls : InputRouter.classOf(identity);
+            List<AndroidInput.AxisRoute> routes = entry != null ? entry.routes : AndroidInput.routes(cls, identity);
             sb.append("    key ").append(identity.deviceKey()).append('\n');
             sb.append("    rule ").append(cls.summary()).append('\n');
+            sb.append("    flip ").append(flips(routes)).append("  full scale ").append(scales(routes)).append('\n');
+            sb.append("    hasKeys ").append(keyNames(identity)).append('\n');
             sb.append("    family ").append(cls.family).append(", table ").append(cls.table)
                     .append(", ignored ").append(cls.ignored)
                     .append(", draw as ").append(settings.drawAs.getOrDefault(identity.deviceKey(), "auto"))
                     .append(", profile ").append(settings.profiles.containsKey(identity.deviceKey()) ? "yes" : "no")
                     .append('\n');
-            sb.append("    routes ").append(InputRouter.describeRoutes(entry != null ? entry.routes
-                    : AndroidInput.routes(cls, identity))).append('\n');
+            sb.append("    routes ").append(InputRouter.describeRoutes(routes)).append('\n');
             if (!cls.unavailable.isEmpty()) {
                 sb.append("    not delivered by this connection: ").append(String.join(", ", cls.unavailable))
                         .append('\n');
@@ -116,6 +120,40 @@ final class ControllerDiagnostics {
         return sb.toString();
     }
 
+    static String flips(List<AndroidInput.AxisRoute> routes) {
+        List<String> out = new ArrayList<>();
+        for (AndroidInput.AxisRoute r : routes) {
+            if (r.invert && !r.hat && !r.isDigital() && !r.trigger) {
+                out.add(PadIdentity.axisName(r.androidAxis));
+            }
+        }
+        return out.isEmpty() ? "none" : String.join(",", out);
+    }
+
+    static String scales(List<AndroidInput.AxisRoute> routes) {
+        float left = 1f;
+        float right = 1f;
+        for (AndroidInput.AxisRoute r : routes) {
+            if (r.hat || r.isDigital() || r.trigger) {
+                continue;
+            }
+            if (r.canonicalAxis == Pad.LEFT_X || r.canonicalAxis == Pad.LEFT_Y) {
+                left = r.scalePos;
+            } else if (r.canonicalAxis == Pad.RIGHT_X || r.canonicalAxis == Pad.RIGHT_Y) {
+                right = r.scalePos;
+            }
+        }
+        return String.format(Locale.ROOT, "%.3f/%.3f", left, right);
+    }
+
+    static String keyNames(PadIdentity id) {
+        List<String> out = new ArrayList<>();
+        for (int k : id.hasKeys) {
+            out.add(PadIdentity.keyName(k));
+        }
+        return out.isEmpty() ? "none" : String.join(",", out);
+    }
+
     static String stamp() {
         SimpleDateFormat f = new SimpleDateFormat("yyyyMMdd'T'HHmmss'Z'", Locale.ROOT);
         f.setTimeZone(TimeZone.getTimeZone("UTC"));
@@ -137,11 +175,24 @@ final class ControllerDiagnostics {
         return f;
     }
 
+    static List<String> chunks(String text) {
+        List<String> out = new ArrayList<>();
+        int start = 0;
+        while (start < text.length()) {
+            int end = Math.min(text.length(), start + LOG_CHUNK);
+            if (end < text.length() && end - start > 1 && text.charAt(end - 1) == '\n') {
+                end--;
+            }
+            out.add(text.substring(start, end));
+            start = end;
+        }
+        return out;
+    }
+
     static void logChunks(String text) {
-        int n = (text.length() + LOG_CHUNK - 1) / LOG_CHUNK;
-        for (int i = 0; i < n; i++) {
-            String part = text.substring(i * LOG_CHUNK, Math.min(text.length(), (i + 1) * LOG_CHUNK));
-            Log.i(MainActivity.TAG, "DIAG " + (i + 1) + "/" + n + "\n" + part);
+        List<String> parts = chunks(text);
+        for (int i = 0; i < parts.size(); i++) {
+            Log.i(MainActivity.TAG, "DIAG " + (i + 1) + "/" + parts.size() + "\n" + parts.get(i));
         }
     }
 }
