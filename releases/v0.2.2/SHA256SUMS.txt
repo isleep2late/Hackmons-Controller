@@ -1,1 +1,1 @@
-49427c11274fcad5587d4ef5d4a4e64e88e785da7cc755bc8e40a5ece7dd5919  GCBridge-0.2.2.apk
+2af8cde23130f29c2721cebd55a13a0b1202b97693b4eeb1e1e2e34ea90c7e8a  GCBridge-0.2.2.apk
