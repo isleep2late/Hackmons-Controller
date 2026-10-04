@@ -144,12 +144,21 @@ final class PadCalibration {
     private String message = "";
 
     PadCalibration(PadIdentity identity, String model, long nowMs) {
+        this(identity, model, nowMs, Collections.emptyMap());
+    }
+
+    PadCalibration(PadIdentity identity, String model, long nowMs, Map<Integer, Float> current) {
         this.identity = identity;
         this.model = model;
         this.steps = PadProfile.usesGameCubeLabels(model) ? gameCubeSteps() : positionalSteps();
         this.answers = new Answer[steps.size()];
         this.index = 0;
         this.stepStart = nowMs;
+        for (Map.Entry<Integer, Float> e : current.entrySet()) {
+            if (e.getKey() != null && e.getValue() != null && !Float.isNaN(e.getValue())) {
+                latest.put(e.getKey(), e.getValue());
+            }
+        }
     }
 
     String deviceKey() {
@@ -340,6 +349,14 @@ final class PadCalibration {
             acc[1] += 1;
             return;
         }
+        if (!rest.containsKey(axis)) {
+            boolean seed = !restsAtZero(axis) && Math.abs(value) > SETTLED;
+            rest.put(axis, seed ? value : 0f);
+            if (seed) {
+                unarmed.add(axis);
+                return;
+            }
+        }
         float dev = value - restOf(axis);
         if (unarmed.contains(axis)) {
             if (Math.abs(dev) <= SETTLED) {
@@ -384,8 +401,25 @@ final class PadCalibration {
         return axis == MotionEvent.AXIS_HAT_X || axis == MotionEvent.AXIS_HAT_Y;
     }
 
+    private static boolean restsAtZero(int axis) {
+        switch (axis) {
+            case MotionEvent.AXIS_X:
+            case MotionEvent.AXIS_Y:
+            case MotionEvent.AXIS_HAT_X:
+            case MotionEvent.AXIS_HAT_Y:
+            case MotionEvent.AXIS_LTRIGGER:
+            case MotionEvent.AXIS_RTRIGGER:
+            case MotionEvent.AXIS_BRAKE:
+            case MotionEvent.AXIS_GAS:
+                return true;
+            default:
+                return false;
+        }
+    }
+
     private void finishRest() {
         rest.clear();
+        rest.putAll(latest);
         for (Map.Entry<Integer, double[]> e : restSum.entrySet()) {
             if (e.getValue()[1] > 0) {
                 rest.put(e.getKey(), (float) (e.getValue()[0] / e.getValue()[1]));

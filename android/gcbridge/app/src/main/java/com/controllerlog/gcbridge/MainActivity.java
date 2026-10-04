@@ -51,6 +51,8 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -205,6 +207,8 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
     private Button calibSave;
     private PadCalibration calibration;
     private int calibDeviceId = Integer.MIN_VALUE;
+    private int axesSeenDevice = Integer.MIN_VALUE;
+    private final Map<Integer, Float> axesSeen = new HashMap<>();
     private String calibName = "";
     private final Runnable calibTicker = new Runnable() {
         @Override
@@ -775,6 +779,7 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
         }
         if (event.getActionMasked() == MotionEvent.ACTION_MOVE) {
             onDeviceMotion(event, device);
+            rememberAxes(event, device);
         }
         if (calibration != null && event.getDeviceId() == calibDeviceId && !calibration.isLive()) {
             if (event.getActionMasked() == MotionEvent.ACTION_MOVE && device != null) {
@@ -790,6 +795,21 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
         }
         InputRouter.onMotion(event);
         return true;
+    }
+
+    private void rememberAxes(MotionEvent e, InputDevice device) {
+        if (device == null) {
+            return;
+        }
+        if (e.getDeviceId() != axesSeenDevice) {
+            axesSeen.clear();
+            axesSeenDevice = e.getDeviceId();
+        }
+        for (InputDevice.MotionRange r : device.getMotionRanges()) {
+            if ((r.getSource() & InputDevice.SOURCE_CLASS_JOYSTICK) != 0) {
+                axesSeen.put(r.getAxis(), e.getAxisValue(r.getAxis()));
+            }
+        }
     }
 
     private void onDeviceMotion(MotionEvent e, InputDevice device) {
@@ -1321,7 +1341,8 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
         }
         String model = cls.model != null ? cls.model
                 : PadClassifier.hasAny(identity, PadClassifier.GC_TOKENS) ? PadClass.MODEL_GAMECUBE : null;
-        calibration = new PadCalibration(identity, model, SystemClock.uptimeMillis());
+        calibration = new PadCalibration(identity, model, SystemClock.uptimeMillis(),
+                deviceId == axesSeenDevice ? axesSeen : Collections.emptyMap());
         calibDeviceId = deviceId;
         calibName = identity.name;
         calibPanel.setVisibility(View.VISIBLE);

@@ -42,6 +42,112 @@ public class PadCalibrationTest {
         c.onAxis(axis, 0f, t);
     }
 
+    private final Map<Integer, Float> pad = new HashMap<>();
+
+    private void move(PadCalibration c, PadIdentity id, int axis, float value) {
+        pad.put(axis, value);
+        t += 10;
+        for (PadIdentity.Range r : id.ranges) {
+            if (r.joystick) {
+                Float v = pad.get(r.axis);
+                c.onAxis(r.axis, v != null ? v : 0f, t);
+            }
+        }
+        c.tick(t);
+    }
+
+    private PadCalibration gameCubeWithTriggersAtMinusOne(PadFixtures.Fixture f) {
+        t = 0;
+        pad.clear();
+        pad.put(MotionEvent.AXIS_Z, -1f);
+        pad.put(MotionEvent.AXIS_RZ, -1f);
+        PadCalibration c = new PadCalibration(f.identity, PadClass.MODEL_GAMECUBE, t);
+        tick(c, 400);
+        assertEquals("A", c.step().label);
+        return c;
+    }
+
+    private void pressKeys(PadCalibration c, String... labels) {
+        int scan = 0x130;
+        for (String label : labels) {
+            assertEquals(label, c.step().label);
+            c.onKey(scan, 0, true, t += 100);
+            c.onKey(scan, 0, false, t += 100);
+            scan++;
+        }
+    }
+
+    private void squeeze(PadCalibration c, PadIdentity id, int axis) {
+        for (float v : new float[]{-0.8f, -0.4f, 0.2f, 0.7f, 1f, 0.3f, -0.5f, -1f}) {
+            move(c, id, axis, v);
+        }
+    }
+
+    @Test
+    public void triggersRestingAtMinusOneAreNotReadAsPressed() throws IOException {
+        PadFixtures.Fixture f = PadFixtures.byId("kernel-driver-gc");
+        PadCalibration c = gameCubeWithTriggersAtMinusOne(f);
+        move(c, f.identity, MotionEvent.AXIS_X, 0.1f);
+        move(c, f.identity, MotionEvent.AXIS_X, 0f);
+        pressKeys(c, "A", "B", "X", "Y", "Z");
+        assertEquals("L", c.step().label);
+        squeeze(c, f.identity, MotionEvent.AXIS_Z);
+        assertEquals("R", c.step().label);
+        Map<String, Object> axes = Json.asObject(c.profile(null).get("axes"));
+        assertNull(axes.get("right_trigger"));
+        Map<String, Object> lt = Json.asObject(axes.get("left_trigger"));
+        assertEquals("Z", Json.str(lt, "axis", null));
+        assertNull(lt.get("invert"));
+        squeeze(c, f.identity, MotionEvent.AXIS_RZ);
+        assertEquals("Start", c.step().label);
+        Map<String, Object> rt = Json.asObject(Json.asObject(c.profile(null).get("axes")).get("right_trigger"));
+        assertEquals("RZ", Json.str(rt, "axis", null));
+        assertNull(rt.get("invert"));
+    }
+
+    @Test
+    public void aStickNudgeWhileAButtonIsAskedForAnswersNothing() throws IOException {
+        PadFixtures.Fixture f = PadFixtures.byId("kernel-driver-gc");
+        PadCalibration c = gameCubeWithTriggersAtMinusOne(f);
+        move(c, f.identity, MotionEvent.AXIS_X, 0.15f);
+        move(c, f.identity, MotionEvent.AXIS_X, 0.3f);
+        move(c, f.identity, MotionEvent.AXIS_X, 0f);
+        assertEquals("A", c.step().label);
+        pressKeys(c, "A");
+        assertEquals("B", c.step().label);
+        for (String input : Json.asObject(c.profile(null).get("buttons")).keySet()) {
+            assertFalse(input, input.startsWith("axis:"));
+        }
+    }
+
+    @Test
+    public void mainStickPushedBeforeAnyOtherMotionIsNotBeatenByTheTriggersAtRest() throws IOException {
+        PadFixtures.Fixture f = PadFixtures.byId("kernel-driver-gc");
+        PadCalibration c = gameCubeWithTriggersAtMinusOne(f);
+        while (c.step().kind != PadCalibration.Kind.STICK) {
+            c.skip(t += 10);
+        }
+        assertEquals("left_y", c.step().slot);
+        for (int i = 0; i < 30; i++) {
+            move(c, f.identity, MotionEvent.AXIS_Y, i % 2 == 0 ? -0.7f : -0.71f);
+            t += 40;
+        }
+        assertEquals("left_x", c.step().slot);
+        Map<String, Object> ly = Json.asObject(Json.asObject(c.profile(null).get("axes")).get("left_y"));
+        assertEquals("Y", Json.str(ly, "axis", null));
+        assertNull(ly.get("invert"));
+        assertEquals(0.71, Json.num(ly, "pos", 0), 0.001);
+    }
+
+    @Test
+    public void setUpStartsFromTheAxisValuesTheScreenLastSaw() throws IOException {
+        String src = TestFiles.javaSource("MainActivity.java");
+        String motion = TestFiles.body(src, "public boolean dispatchGenericMotionEvent(").replaceAll("\\s+", "");
+        assertTrue(motion, motion.contains("onDeviceMotion(event,device);rememberAxes(event,device);}"));
+        String start = TestFiles.body(src, "private void startCalibration(").replaceAll("\\s+", "");
+        assertTrue(start, start.contains("deviceId==axesSeenDevice?axesSeen:Collections.emptyMap()"));
+    }
+
     private PadCalibration thorRun(PadFixtures.Fixture f) {
         t = 1000;
         PadCalibration c = new PadCalibration(f.identity, PadClass.MODEL_GAMECUBE, t);
