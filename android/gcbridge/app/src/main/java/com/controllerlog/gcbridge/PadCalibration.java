@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -22,6 +23,9 @@ final class PadCalibration {
     static final float STICK_START = 0.2f;
     static final float STICK_MIN = 0.3f;
     static final float SETTLED = 0.25f;
+    static final long SETTLE_MS = 1_000;
+    static final float SETTLE_JITTER = 0.05f;
+    static final String SETTLE_HINT = "Let go of everything for a moment";
 
     enum Kind { REST, BUTTON, TRIGGER, STICK, LIVE }
 
@@ -137,6 +141,7 @@ final class PadCalibration {
     private final Map<Integer, Float> rest = new HashMap<>();
     private final Map<Integer, double[]> restSum = new HashMap<>();
     private final Set<Integer> unarmed = new LinkedHashSet<>();
+    private final Map<Integer, Long> settling = new HashMap<>();
     private long holdStart = -1;
     private final Map<Integer, Float> peak = new HashMap<>();
     private String pendingInput;
@@ -199,6 +204,9 @@ final class PadCalibration {
     }
 
     String message() {
+        if (!settling.isEmpty() && !isLive()) {
+            return SETTLE_HINT;
+        }
         return message;
     }
 
@@ -350,12 +358,23 @@ final class PadCalibration {
             return;
         }
         if (!rest.containsKey(axis)) {
-            boolean seed = !restsAtZero(axis) && Math.abs(value) > SETTLED;
-            rest.put(axis, seed ? value : 0f);
-            if (seed) {
-                unarmed.add(axis);
+            if (!restsAtZero(axis) && Math.abs(value) > SETTLED) {
+                rest.put(axis, value);
+                settling.put(axis, nowMs);
                 return;
             }
+            rest.put(axis, 0f);
+        }
+        Long since = settling.get(axis);
+        if (since != null) {
+            if (nowMs - since < SETTLE_MS) {
+                if (Math.abs(value - restOf(axis)) > SETTLE_JITTER) {
+                    rest.put(axis, value);
+                    settling.put(axis, nowMs);
+                }
+                return;
+            }
+            settling.remove(axis);
         }
         float dev = value - restOf(axis);
         if (unarmed.contains(axis)) {
@@ -418,6 +437,7 @@ final class PadCalibration {
     }
 
     private void finishRest() {
+        settling.clear();
         rest.clear();
         rest.putAll(latest);
         for (Map.Entry<Integer, double[]> e : restSum.entrySet()) {
@@ -436,6 +456,12 @@ final class PadCalibration {
                 advance(nowMs);
             }
             return;
+        }
+        Iterator<Map.Entry<Integer, Long>> settled = settling.entrySet().iterator();
+        while (settled.hasNext()) {
+            if (nowMs - settled.next().getValue() >= SETTLE_MS) {
+                settled.remove();
+            }
         }
         if (s.kind == Kind.LIVE || pendingInput != null) {
             return;

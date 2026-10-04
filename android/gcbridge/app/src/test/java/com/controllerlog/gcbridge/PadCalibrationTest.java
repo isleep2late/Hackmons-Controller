@@ -105,6 +105,44 @@ public class PadCalibrationTest {
         assertNull(rt.get("invert"));
     }
 
+    private void lAsTheFirstMotion(float[] first, long holdMs) throws IOException {
+        PadFixtures.Fixture f = PadFixtures.byId("kernel-driver-gc");
+        PadCalibration c = gameCubeWithTriggersAtMinusOne(f);
+        pressKeys(c, "A", "B", "X", "Y", "Z");
+        assertEquals("L", c.step().label);
+        String name = Arrays.toString(first) + " held " + holdMs;
+        for (int i = 0; i < first.length; i++) {
+            move(c, f.identity, MotionEvent.AXIS_Z, first[i]);
+            if (first[i] == 1f && holdMs > 0) {
+                tick(c, holdMs);
+                holdMs = 0;
+            }
+        }
+        if (c.step().label.equals("L")) {
+            assertNull(name, Json.asObject(c.profile(null).get("axes")).get("left_trigger"));
+            assertEquals(name, "Let go of everything for a moment", c.message());
+            tick(c, 1200);
+            assertEquals(name, "", c.message());
+            squeeze(c, f.identity, MotionEvent.AXIS_Z);
+        }
+        assertEquals(name, "R", c.step().label);
+        Map<String, Object> axes = Json.asObject(c.profile(null).get("axes"));
+        assertNull(name, axes.get("right_trigger"));
+        Map<String, Object> lt = Json.asObject(axes.get("left_trigger"));
+        assertEquals(name, "Z", Json.str(lt, "axis", null));
+        assertNull(name, lt.get("invert"));
+    }
+
+    @Test
+    public void triggerPressedBeforeAnyOtherMotionIsNotTakenAsItsRest() throws IOException {
+        lAsTheFirstMotion(new float[]{-0.8f, -0.4f, 0.2f, 0.7f, 1f, 0.3f, -0.5f, -1f}, 0);
+        lAsTheFirstMotion(new float[]{-0.4f, 0.2f, 0.7f, 1f, 0.3f, -0.5f, -1f}, 0);
+        lAsTheFirstMotion(new float[]{0.5f, 1f, 0.6f, 0.2f, -0.5f, -1f}, 0);
+        lAsTheFirstMotion(new float[]{1f, 0.6f, 0.2f, -0.5f, -1f}, 0);
+        lAsTheFirstMotion(new float[]{-0.4f, 0.2f, 0.7f, 1f, 0.3f, -0.5f, -1f}, 600);
+        lAsTheFirstMotion(new float[]{1f, 0.6f, 0.2f, -0.5f, -1f}, 600);
+    }
+
     @Test
     public void aStickNudgeWhileAButtonIsAskedForAnswersNothing() throws IOException {
         PadFixtures.Fixture f = PadFixtures.byId("kernel-driver-gc");
