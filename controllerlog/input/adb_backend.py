@@ -636,7 +636,7 @@ def switch2_standard_keys(product: int) -> dict[int, str]:
 VENDOR_AYN, PRODUCT_AYN = 0x2020, 0x0111
 AYN_SPANS = {SWITCH2_PID_GAMECUBE: (0.598, 0.547), SWITCH2_PID_PRO: (0.786, 0.786)}
 _GC_NAME = re.compile(r"(?<![a-z0-9])gamecube(?![a-z0-9])", re.I)
-_PRO_NAME = re.compile(r"(?<![a-z0-9])(pro controller|switch 2 pro|pro 2)(?![a-z0-9])", re.I)
+_PRO_NAME = re.compile(r"(?<![a-z0-9])switch 2 pro(?![a-z0-9])", re.I)
 
 
 def _norm_name(name: str) -> str:

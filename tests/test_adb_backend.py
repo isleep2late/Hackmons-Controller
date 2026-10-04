@@ -212,6 +212,18 @@ def test_profile_thor_ayn_gamecube_copy():
     assert not mouse.is_gamepad and not ab.is_ayn_copy(mouse)
 
 
+def test_ayn_copy_pro_rule_needs_the_switch_2_pro_name():
+    import dataclasses
+    dev = node("thor_ayn_info.txt", "/dev/input/event12")
+    for name in ("Nintendo Switch Pro Controller", "8BitDo Pro 2", "Pro Controller"):
+        other = dataclasses.replace(dev, name=name)
+        assert not ab.is_ayn_copy(other), name
+        assert ab.switch2_standard_product(other) is None, name
+    s2pro = dataclasses.replace(dev, name="Nintendo Switch 2 Pro Controller")
+    assert ab.is_ayn_copy(s2pro)
+    assert ab.switch2_standard_product(s2pro) == ab.SWITCH2_PID_PRO
+
+
 def test_mapper_thor_ayn_copy_scales_and_flips():
     dev = node("thor_ayn_info.txt", "/dev/input/event12")
     m = EvdevMapper(build_profile(dev), dev)

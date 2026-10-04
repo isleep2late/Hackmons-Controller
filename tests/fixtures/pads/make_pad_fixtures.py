@@ -403,13 +403,34 @@ def ayn_pro2() -> dict:
     samples = [stick_sample("Y", 0.5, "left_y", PRO2, True), stick_sample("RZ", 0.5, "right_y", PRO2, True)]
     presses = [report_press(S2_PRO, 0x130, "BUTTON_A"), report_press(S2_PRO, 0x131, "BUTTON_B"),
                report_press(S2_PRO, 0x135, "BUTTON_Z")]
-    exp = expect("ayn-copy-pro2", "pro2", "switch", "sig:2020:0111:nintendo switch pro controller", "S2-Pro",
+    exp = expect("ayn-copy-pro2", "pro2", "switch", "sig:2020:0111:nintendo switch 2 pro controller", "S2-Pro",
                  ["Y", "RZ"], ("X", "Y"), (None, "RZ"), {"left": PRO2, "right": PRO2},
                  {"left": None, "right": None, "centred": False}, ["Z", "GAS", "BRAKE", "HAT_X", "HAT_Y"], False,
                  ["Home", "Capture", "GR", "GL", "C", "RightStickLeft", "RightStickRight"], True)
-    return fixture("ayn-copy-unknown-nintendo", "synthetic: the Thor copy's template with a Pro Controller name "
-                   "(no Pro 2 was measured on the Thor)", False,
-                   ayn_device("Nintendo Switch Pro Controller", "", 3), exp, presses, samples)
+    return fixture("ayn-copy-pro2", "synthetic: the Thor copy's template with a Switch 2 Pro name "
+                   "(no Switch 2 Pro was measured on the Thor)", False,
+                   ayn_device("Nintendo Switch 2 Pro Controller", "", 3), exp, presses, samples)
+
+
+def ayn_switch1_pro() -> dict:
+    exp = expect("ayn-copy-nintendo", None, "switch", "sig:2020:0111:nintendo switch pro controller", "none", [],
+                 ("X", "Y"), ("Z", "RZ"), {"left": 1.0, "right": 1.0},
+                 {"left": "BRAKE", "right": "GAS", "centred": False}, [], True, [], False)
+    presses = [{"label": "BUTTON_A", "slot": 0, "scan": 0x130, "keyCode": "BUTTON_A",
+                "expect": {"gcbridge": "south", "is2l": "A", "iswitch2late": "BUTTON_A"}}]
+    return fixture("ayn-copy-unknown-nintendo", "synthetic: the Thor copy's template with the Switch 1 Pro "
+                   "Controller's kernel name; not a Switch 2 Pro, so read by key code", False,
+                   ayn_device("Nintendo Switch Pro Controller", "", 3), exp, presses,
+                   [stick_sample("Y", 0.5, "left_y", 1.0, False)])
+
+
+def ayn_8bitdo_pro2() -> dict:
+    exp = expect("builtin-untouched", None, "generic", "sig:2020:0111:8bitdo pro 2", "none", [],
+                 ("X", "Y"), ("Z", "RZ"), {"left": 1.0, "right": 1.0},
+                 {"left": "BRAKE", "right": "GAS", "centred": False}, [], True, [], False)
+    return fixture("ayn-copy-8bitdo-pro2", "synthetic: the Thor copy's template with an 8BitDo Pro 2 name; "
+                   "\"pro 2\" is not the Switch 2 Pro token", False,
+                   ayn_device("8BitDo Pro 2", "", 3), exp, [], [])
 
 
 def ayn_nintendo_other() -> dict:
@@ -432,7 +453,8 @@ def ayn_word_boundary() -> dict:
 
 
 ALL = [thor_copy, thor_copy_profile, thor_copy_ignored, thor_odin, thor_mouse, trifold, pro2_hidgeneric,
-       gc_clone, kernel_driver, xbox360, ayn_pro2, ayn_nintendo_other, ayn_word_boundary]
+       gc_clone, kernel_driver, xbox360, ayn_pro2, ayn_switch1_pro, ayn_8bitdo_pro2, ayn_nintendo_other,
+       ayn_word_boundary]
 
 
 def main() -> int:

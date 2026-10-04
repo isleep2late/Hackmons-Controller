@@ -26,7 +26,7 @@ final class PadClassifier {
     static final float PRO2_SPAN = 0.786f;
 
     static final String[] GC_TOKENS = {"gamecube"};
-    static final String[] PRO_TOKENS = {"pro controller", "switch 2 pro", "pro 2"};
+    static final String[] PRO_TOKENS = {"switch 2 pro"};
     static final String[] NIN_TOKENS = {"nintendo", "nso", "switch"};
     static final String[] FAMILY_TOKENS = {"xbox", "playstation", "dualsense", "dualshock",
             "wireless controller"};

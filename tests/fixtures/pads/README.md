@@ -15,7 +15,8 @@ must be the start or end of the name or something other than a letter or digit (
 not match inside "console").
 
 * `gc` = `gamecube`
-* `pro` = `pro controller`, `switch 2 pro`, `pro 2`
+* `pro` = `switch 2 pro` only (a Switch 1 "Pro Controller" or an 8BitDo "Pro 2" copied under AYN's ids is
+  not a Switch 2 Pro in raw-report mode; add a measured name here once a Switch 2 Pro is captured on the Thor)
 * `nin` = `nintendo`, `nso`, `switch`
 
 | # | rule | condition | result |
