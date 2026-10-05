@@ -1,0 +1,139 @@
+{
+ "format": "pad-fixture",
+ "version": 1,
+ "id": "ayn-copy-unknown-nintendo",
+ "source": "synthetic: the Thor copy's template with the Switch 1 Pro Controller's kernel name; not a Switch 2 Pro, so read by key code",
+ "measured": false,
+ "stickPress": 0.24,
+ "device": {
+  "name": "Nintendo Switch Pro Controller",
+  "vendor": 8224,
+  "product": 273,
+  "descriptor": "",
+  "sources": [
+   "KEYBOARD",
+   "GAMEPAD",
+   "JOYSTICK"
+  ],
+  "external": true,
+  "controllerNumber": 3,
+  "axes": [
+   {
+    "axis": "X",
+    "min": -1,
+    "max": 1,
+    "flat": 0.00046
+   },
+   {
+    "axis": "Y",
+    "min": -1,
+    "max": 1,
+    "flat": 0.00046
+   },
+   {
+    "axis": "Z",
+    "min": -1,
+    "max": 1,
+    "flat": 0.00046
+   },
+   {
+    "axis": "RZ",
+    "min": -1,
+    "max": 1,
+    "flat": 0.00046
+   },
+   {
+    "axis": "GAS",
+    "min": 0,
+    "max": 1,
+    "flat": 0
+   },
+   {
+    "axis": "BRAKE",
+    "min": 0,
+    "max": 1,
+    "flat": 0
+   },
+   {
+    "axis": "HAT_X",
+    "min": -1,
+    "max": 1,
+    "flat": 0
+   },
+   {
+    "axis": "HAT_Y",
+    "min": -1,
+    "max": 1,
+    "flat": 0
+   }
+  ],
+  "hasKeys": [
+   "BUTTON_A",
+   "BUTTON_B",
+   "BUTTON_C",
+   "BUTTON_X",
+   "BUTTON_Y",
+   "BUTTON_Z",
+   "BUTTON_L1",
+   "BUTTON_R1",
+   "BUTTON_L2",
+   "BUTTON_R2",
+   "BUTTON_THUMBL",
+   "BUTTON_THUMBR",
+   "BUTTON_SELECT",
+   "BUTTON_START",
+   "BUTTON_MODE",
+   "DPAD_UP",
+   "DPAD_DOWN",
+   "DPAD_LEFT",
+   "DPAD_RIGHT"
+  ]
+ },
+ "expect": {
+  "rule": "ayn-copy-nintendo",
+  "model": null,
+  "family": "switch",
+  "deviceKey": "sig:2020:0111:nintendo switch pro controller",
+  "table": "none",
+  "flip": [],
+  "leftX": "X",
+  "leftY": "Y",
+  "rightX": "Z",
+  "rightY": "RZ",
+  "fullScale": {
+   "left": 1.0,
+   "right": 1.0
+  },
+  "triggers": {
+   "left": "BRAKE",
+   "right": "GAS",
+   "centred": false
+  },
+  "dropAxes": [],
+  "analogTriggers": true,
+  "unavailable": [],
+  "rawReport": false
+ },
+ "presses": [
+  {
+   "label": "BUTTON_A",
+   "slot": 0,
+   "scan": 304,
+   "keyCode": "BUTTON_A",
+   "expect": {
+    "gcbridge": "south",
+    "is2l": "A",
+    "iswitch2late": "BUTTON_A"
+   }
+  }
+ ],
+ "axisSamples": [
+  {
+   "axis": "Y",
+   "raw": 0.5,
+   "canonical": "left_y",
+   "value": 0.5,
+   "expect": "LeftStickDown"
+  }
+ ]
+}

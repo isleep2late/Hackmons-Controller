@@ -1,0 +1,48 @@
+{
+ "format": "pad-fixture",
+ "version": 1,
+ "id": "thor-odin-station-mouse",
+ "source": "thor-evidence/thor-dumpsys-input.txt (device 10/11, CURSOR_ICON); thor-getevent-lp-pad.txt:46-52",
+ "measured": true,
+ "stickPress": 0.24,
+ "device": {
+  "name": "ODIN Station Virtual Mouse",
+  "vendor": 8224,
+  "product": 273,
+  "descriptor": "215005827afddf4e97a68b3679bcdfdf7635af91",
+  "sources": [
+   "MOUSE"
+  ],
+  "external": true,
+  "controllerNumber": 0,
+  "axes": [],
+  "hasKeys": []
+ },
+ "expect": {
+  "rule": "builtin-untouched",
+  "model": null,
+  "family": "generic",
+  "deviceKey": "sig:2020:0111:odin station virtual mouse",
+  "table": "none",
+  "flip": [],
+  "leftX": null,
+  "leftY": null,
+  "rightX": null,
+  "rightY": null,
+  "fullScale": {
+   "left": 1.0,
+   "right": 1.0
+  },
+  "triggers": {
+   "left": null,
+   "right": null,
+   "centred": false
+  },
+  "dropAxes": [],
+  "analogTriggers": false,
+  "unavailable": [],
+  "rawReport": false
+ },
+ "presses": [],
+ "axisSamples": []
+}

@@ -20,6 +20,27 @@
     <string name="keys_none">No key events yet.</string>
     <string name="copied">Copied to clipboard</string>
 
+    <string name="section_controllers">Controllers</string>
+    <string name="controllers_hint">How GC Bridge reads each controller Android knows. On the AYN Thor the NSO GameCube pad arrives as AYN\'s copy: its buttons are read in the pad\'s own report order and its sticks are turned the right way up. Home, Capture, C and C-stick left/right are not delivered by that copy; USB capture is meant to read them directly (not yet tried on the Thor).</string>
+    <string name="btn_diagnostics">Export diagnostics</string>
+    <string name="btn_import_profile">Import profile…</string>
+    <string name="btn_setup">Set up this controller</string>
+    <string name="btn_ignore">Ignore</string>
+    <string name="btn_unignore">Stop ignoring</string>
+    <string name="btn_draw_as">Draw as: %1$s</string>
+    <string name="btn_export_profile">Export profile</string>
+    <string name="btn_delete_profile">Delete profile</string>
+    <string name="controllers_none">No gamepad or joystick is connected.</string>
+    <string name="calib_title">Set up %1$s (step %2$d of %3$d)</string>
+    <string name="calib_skip">Skip</string>
+    <string name="calib_redo">Redo</string>
+    <string name="calib_back">Back</string>
+    <string name="calib_yes">Yes</string>
+    <string name="calib_no">No</string>
+    <string name="calib_save">Save</string>
+    <string name="calib_cancel">Cancel</string>
+    <string name="calib_finish_unavailable">Not delivered by this connection: %1$s. USB capture reads the controller itself and may get them.</string>
+
     <!-- capture, recording and overlay -->
     <string name="section_capture">Log &amp; overlay</string>
     <string name="capture_hint">Every controller Android knows (Bluetooth or USB) is logged while this screen is in front. Turn on Button capture to keep logging buttons while a game is in front; sticks and triggers need this screen, USB capture or Bluetooth capture.</string>
@@ -56,7 +77,7 @@
     <string name="recordings_share">Share</string>
     <string name="recordings_export">Copy to Downloads</string>
     <string name="recordings_delete">Delete</string>
-    <string name="recordings_where">Files are in Android/data/com.controllerlog.gcbridge/files/recordings (visible from a PC over USB) and open with \'controllerlog view\' on the PC.</string>
+    <string name="recordings_where">Files are in Android/data/%1$s/files/recordings (visible from a PC over USB) and open with \'controllerlog view\' on the PC.</string>
 
     <!-- notification -->
     <string name="channel_capture">Capture &amp; overlay</string>

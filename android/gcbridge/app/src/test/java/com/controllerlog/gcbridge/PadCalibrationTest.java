@@ -1,0 +1,380 @@
+package com.controllerlog.gcbridge;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
+import android.view.MotionEvent;
+
+import org.junit.Test;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeSet;
+
+public class PadCalibrationTest {
+
+    private long t;
+
+    private void tick(PadCalibration c, long ms) {
+        long end = t + ms;
+        while (t < end) {
+            t += 50;
+            c.tick(t);
+        }
+    }
+
+    private void hold(PadCalibration c, int axis, float value) {
+        c.onAxis(axis, value * 0.4f, t);
+        t += 20;
+        c.onAxis(axis, value, t);
+        for (int i = 0; i < 25; i++) {
+            t += 50;
+            c.onAxis(axis, value, t);
+            c.tick(t);
+        }
+        c.onAxis(axis, 0f, t);
+    }
+
+    private final Map<Integer, Float> pad = new HashMap<>();
+
+    private void move(PadCalibration c, PadIdentity id, int axis, float value) {
+        pad.put(axis, value);
+        t += 10;
+        for (PadIdentity.Range r : id.ranges) {
+            if (r.joystick) {
+                Float v = pad.get(r.axis);
+                c.onAxis(r.axis, v != null ? v : 0f, t);
+            }
+        }
+        c.tick(t);
+    }
+
+    private PadCalibration gameCubeWithTriggersAtMinusOne(PadFixtures.Fixture f) {
+        t = 0;
+        pad.clear();
+        pad.put(MotionEvent.AXIS_Z, -1f);
+        pad.put(MotionEvent.AXIS_RZ, -1f);
+        PadCalibration c = new PadCalibration(f.identity, PadClass.MODEL_GAMECUBE, t);
+        tick(c, 400);
+        assertEquals("A", c.step().label);
+        return c;
+    }
+
+    private void pressKeys(PadCalibration c, String... labels) {
+        int scan = 0x130;
+        for (String label : labels) {
+            assertEquals(label, c.step().label);
+            c.onKey(scan, 0, true, t += 100);
+            c.onKey(scan, 0, false, t += 100);
+            scan++;
+        }
+    }
+
+    private void squeeze(PadCalibration c, PadIdentity id, int axis) {
+        for (float v : new float[]{-0.8f, -0.4f, 0.2f, 0.7f, 1f, 0.3f, -0.5f, -1f}) {
+            move(c, id, axis, v);
+        }
+    }
+
+    @Test
+    public void triggersRestingAtMinusOneAreNotReadAsPressed() throws IOException {
+        PadFixtures.Fixture f = PadFixtures.byId("kernel-driver-gc");
+        PadCalibration c = gameCubeWithTriggersAtMinusOne(f);
+        move(c, f.identity, MotionEvent.AXIS_X, 0.1f);
+        move(c, f.identity, MotionEvent.AXIS_X, 0f);
+        pressKeys(c, "A", "B", "X", "Y", "Z");
+        assertEquals("L", c.step().label);
+        squeeze(c, f.identity, MotionEvent.AXIS_Z);
+        assertEquals("R", c.step().label);
+        Map<String, Object> axes = Json.asObject(c.profile(null).get("axes"));
+        assertNull(axes.get("right_trigger"));
+        Map<String, Object> lt = Json.asObject(axes.get("left_trigger"));
+        assertEquals("Z", Json.str(lt, "axis", null));
+        assertNull(lt.get("invert"));
+        squeeze(c, f.identity, MotionEvent.AXIS_RZ);
+        assertEquals("Start", c.step().label);
+        Map<String, Object> rt = Json.asObject(Json.asObject(c.profile(null).get("axes")).get("right_trigger"));
+        assertEquals("RZ", Json.str(rt, "axis", null));
+        assertNull(rt.get("invert"));
+    }
+
+    private void lAsTheFirstMotion(float[] first, long holdMs) throws IOException {
+        PadFixtures.Fixture f = PadFixtures.byId("kernel-driver-gc");
+        PadCalibration c = gameCubeWithTriggersAtMinusOne(f);
+        pressKeys(c, "A", "B", "X", "Y", "Z");
+        assertEquals("L", c.step().label);
+        String name = Arrays.toString(first) + " held " + holdMs;
+        for (int i = 0; i < first.length; i++) {
+            move(c, f.identity, MotionEvent.AXIS_Z, first[i]);
+            if (first[i] == 1f && holdMs > 0) {
+                tick(c, holdMs);
+                holdMs = 0;
+            }
+        }
+        if (c.step().label.equals("L")) {
+            assertNull(name, Json.asObject(c.profile(null).get("axes")).get("left_trigger"));
+            assertEquals(name, "Let go of everything for a moment", c.message());
+            tick(c, 1200);
+            assertEquals(name, "", c.message());
+            squeeze(c, f.identity, MotionEvent.AXIS_Z);
+        }
+        assertEquals(name, "R", c.step().label);
+        Map<String, Object> axes = Json.asObject(c.profile(null).get("axes"));
+        assertNull(name, axes.get("right_trigger"));
+        Map<String, Object> lt = Json.asObject(axes.get("left_trigger"));
+        assertEquals(name, "Z", Json.str(lt, "axis", null));
+        assertNull(name, lt.get("invert"));
+    }
+
+    @Test
+    public void triggerPressedBeforeAnyOtherMotionIsNotTakenAsItsRest() throws IOException {
+        lAsTheFirstMotion(new float[]{-0.8f, -0.4f, 0.2f, 0.7f, 1f, 0.3f, -0.5f, -1f}, 0);
+        lAsTheFirstMotion(new float[]{-0.4f, 0.2f, 0.7f, 1f, 0.3f, -0.5f, -1f}, 0);
+        lAsTheFirstMotion(new float[]{0.5f, 1f, 0.6f, 0.2f, -0.5f, -1f}, 0);
+        lAsTheFirstMotion(new float[]{1f, 0.6f, 0.2f, -0.5f, -1f}, 0);
+        lAsTheFirstMotion(new float[]{-0.4f, 0.2f, 0.7f, 1f, 0.3f, -0.5f, -1f}, 600);
+        lAsTheFirstMotion(new float[]{1f, 0.6f, 0.2f, -0.5f, -1f}, 600);
+    }
+
+    @Test
+    public void aStickNudgeWhileAButtonIsAskedForAnswersNothing() throws IOException {
+        PadFixtures.Fixture f = PadFixtures.byId("kernel-driver-gc");
+        PadCalibration c = gameCubeWithTriggersAtMinusOne(f);
+        move(c, f.identity, MotionEvent.AXIS_X, 0.15f);
+        move(c, f.identity, MotionEvent.AXIS_X, 0.3f);
+        move(c, f.identity, MotionEvent.AXIS_X, 0f);
+        assertEquals("A", c.step().label);
+        pressKeys(c, "A");
+        assertEquals("B", c.step().label);
+        for (String input : Json.asObject(c.profile(null).get("buttons")).keySet()) {
+            assertFalse(input, input.startsWith("axis:"));
+        }
+    }
+
+    @Test
+    public void mainStickPushedBeforeAnyOtherMotionIsNotBeatenByTheTriggersAtRest() throws IOException {
+        PadFixtures.Fixture f = PadFixtures.byId("kernel-driver-gc");
+        PadCalibration c = gameCubeWithTriggersAtMinusOne(f);
+        while (c.step().kind != PadCalibration.Kind.STICK) {
+            c.skip(t += 10);
+        }
+        assertEquals("left_y", c.step().slot);
+        for (int i = 0; i < 30; i++) {
+            move(c, f.identity, MotionEvent.AXIS_Y, i % 2 == 0 ? -0.7f : -0.71f);
+            t += 40;
+        }
+        assertEquals("left_x", c.step().slot);
+        Map<String, Object> ly = Json.asObject(Json.asObject(c.profile(null).get("axes")).get("left_y"));
+        assertEquals("Y", Json.str(ly, "axis", null));
+        assertNull(ly.get("invert"));
+        assertEquals(0.71, Json.num(ly, "pos", 0), 0.001);
+    }
+
+    @Test
+    public void setUpStartsFromTheAxisValuesTheScreenLastSaw() throws IOException {
+        String src = TestFiles.javaSource("MainActivity.java");
+        String motion = TestFiles.body(src, "public boolean dispatchGenericMotionEvent(").replaceAll("\\s+", "");
+        assertTrue(motion, motion.contains("onDeviceMotion(event,device);rememberAxes(event,device);}"));
+        String start = TestFiles.body(src, "private void startCalibration(").replaceAll("\\s+", "");
+        assertTrue(start, start.contains("deviceId==axesSeenDevice?axesSeen:Collections.emptyMap()"));
+    }
+
+    private PadCalibration thorRun(PadFixtures.Fixture f) {
+        t = 1000;
+        PadCalibration c = new PadCalibration(f.identity, PadClass.MODEL_GAMECUBE, t);
+        assertEquals(PadCalibration.Kind.REST, c.step().kind);
+        tick(c, 400);
+        Map<String, Map<String, Object>> byLabel = new HashMap<>();
+        for (Map<String, Object> p : f.list("presses")) {
+            byLabel.put(Json.str(p, "label", ""), p);
+        }
+        for (String label : Arrays.asList("A", "B", "X", "Y", "Z", "L", "R", "Start", "DUp", "DDown", "DLeft",
+                "DRight", "ZL")) {
+            assertEquals(label, c.step().label);
+            Map<String, Object> p = byLabel.get(label);
+            assertNotNull(label, p);
+            t += 300;
+            c.onKey(PadFixtures.scan(p), PadFixtures.keyCode(p), true, t);
+            t += 100;
+            c.onKey(PadFixtures.scan(p), PadFixtures.keyCode(p), false, t);
+        }
+        for (String label : Arrays.asList("Home", "Capture", "C")) {
+            assertEquals(label, c.step().label);
+            tick(c, PadCalibration.TIMEOUT_MS + 100);
+        }
+        assertEquals("left_y", c.step().slot);
+        hold(c, MotionEvent.AXIS_Y, 0.5889f);
+        assertEquals("left_x", c.step().slot);
+        hold(c, MotionEvent.AXIS_X, 0.6186f);
+        assertEquals("right_y", c.step().slot);
+        hold(c, MotionEvent.AXIS_RZ, 0.5166f);
+        assertEquals("right_x", c.step().slot);
+        tick(c, PadCalibration.TIMEOUT_MS + 100);
+        assertTrue(c.isLive());
+        return c;
+    }
+
+    @Test
+    public void thorPressSequenceGivesTheBuiltInRule3Mapping() throws IOException {
+        PadFixtures.Fixture f = PadFixtures.byId("thor-ayn-gc-copy");
+        Map<String, Object> profile = thorRun(f).profile("test");
+        Map<String, Object> roundTrip = Json.asObject(Json.parse(Json.write(profile)));
+        Map<String, Map<String, Object>> profiles = Collections.singletonMap(f.identity.deviceKey(), roundTrip);
+        PadClass fromProfile = PadClassifier.classify(f.identity, profiles, null);
+        PadClass rule3 = f.classify();
+        assertEquals(PadClass.RULE_PROFILE, fromProfile.rule);
+        assertEquals(PadClass.RULE_AYN_GAMECUBE, rule3.rule);
+        assertTrue(fromProfile.rawReport);
+        for (Map<String, Object> p : f.list("presses")) {
+            int a = AndroidInput.buttonForKey(fromProfile, PadFixtures.keyCode(p), PadFixtures.scan(p), false);
+            int b = AndroidInput.buttonForKey(rule3, PadFixtures.keyCode(p), PadFixtures.scan(p), false);
+            assertEquals(Json.str(p, "label", "?"), b, a);
+            assertEquals(Json.str(Json.asObject(p.get("expect")), "gcbridge", null), InputRouter.canonicalName(a));
+        }
+        assertEquals(rule3.flipsLeftY(), fromProfile.flipsLeftY());
+        assertEquals(rule3.flipsRightY(), fromProfile.flipsRightY());
+        List<AndroidInput.AxisRoute> pr = AndroidInput.routes(fromProfile, f.identity);
+        List<AndroidInput.AxisRoute> rr = AndroidInput.routes(rule3, f.identity);
+        assertEquals(rr.size(), pr.size());
+        for (AndroidInput.AxisRoute r : rr) {
+            AndroidInput.AxisRoute q = null;
+            for (AndroidInput.AxisRoute x : pr) {
+                if (x.androidAxis == r.androidAxis) {
+                    q = x;
+                }
+            }
+            assertNotNull(PadIdentity.axisName(r.androidAxis), q);
+            assertEquals(r.canonicalAxis, q.canonicalAxis);
+            assertEquals(r.invert, q.invert);
+            assertEquals(r.scalePos, q.scalePos, 0.05f);
+        }
+        assertEquals(new TreeSet<>(rule3.unavailable), new TreeSet<>(fromProfile.unavailable));
+        Map<String, Object> axes = Json.asObject(roundTrip.get("axes"));
+        assertNull(axes.get("right_x"));
+        assertEquals(0.589, Json.num(Json.asObject(axes.get("left_y")), "pos", 0), 0.001);
+        assertEquals("gamecube", Json.str(roundTrip, "family", null));
+        assertEquals(f.identity.deviceKey(), PadProfile.matchKey(roundTrip));
+    }
+
+    @Test
+    public void backFromTheLiveTestRestoresAndTheNextLiveTestUsesTheNewAnswers() throws IOException {
+        PadFixtures.Fixture f = PadFixtures.byId("thor-ayn-gc-copy");
+        PadCalibration c = thorRun(f);
+        assertEquals(PadCalibration.LiveChange.APPLY, c.liveChange());
+        assertTrue(c.liveApplied());
+        assertEquals(PadCalibration.LiveChange.NONE, c.liveChange());
+        double first = Json.num(Json.asObject(Json.asObject(c.profile(null).get("axes")).get("right_y")), "pos", 0);
+        c.back(t);
+        assertEquals("right_x", c.step().slot);
+        assertEquals(PadCalibration.LiveChange.RESTORE, c.liveChange());
+        assertFalse(c.liveApplied());
+        c.back(t);
+        assertEquals("right_y", c.step().slot);
+        assertEquals(PadCalibration.LiveChange.NONE, c.liveChange());
+        tick(c, 400);
+        hold(c, MotionEvent.AXIS_RZ, 0.8f);
+        assertEquals("right_x", c.step().slot);
+        tick(c, PadCalibration.TIMEOUT_MS + 100);
+        assertTrue(c.isLive());
+        assertEquals(PadCalibration.LiveChange.APPLY, c.liveChange());
+        double again = Json.num(Json.asObject(Json.asObject(c.profile(null).get("axes")).get("right_y")), "pos", 0);
+        assertEquals(0.517, first, 0.001);
+        assertEquals(0.8, again, 0.001);
+    }
+
+    @Test
+    public void mainScreenAppliesAndRestoresTheLiveTestByStep() throws IOException {
+        String src = TestFiles.javaSource("MainActivity.java");
+        String ui = TestFiles.body(src, "private void updateCalibUi(").replaceAll("\\s+", "");
+        assertTrue(ui, ui.contains("PadCalibration.LiveChangechange=c.liveChange();"));
+        assertTrue(ui, ui.contains("change==PadCalibration.LiveChange.RESTORE){InputRouter.reloadSettings(this);}"));
+        String cancel = TestFiles.body(src, "private void cancelCalibration(").replaceAll("\\s+", "");
+        assertTrue(cancel, cancel.contains("calibration.liveApplied()"));
+        assertFalse(src.contains("calibLiveApplied"));
+    }
+
+    @Test
+    public void silentStepTimesOutAsUnavailable() throws IOException {
+        PadFixtures.Fixture f = PadFixtures.byId("thor-ayn-gc-copy");
+        t = 0;
+        PadCalibration c = new PadCalibration(f.identity, PadClass.MODEL_GAMECUBE, t);
+        tick(c, 400);
+        assertEquals("A", c.step().label);
+        tick(c, PadCalibration.TIMEOUT_MS - 500);
+        assertEquals("A", c.step().label);
+        tick(c, 600);
+        assertEquals("B", c.step().label);
+        List<?> unavailable = Json.asArray(c.profile(null).get("unavailable"));
+        assertTrue(unavailable.contains("A"));
+    }
+
+    @Test
+    public void reusedInputAsksAndCanBeRefusedOrShared() throws IOException {
+        PadFixtures.Fixture f = PadFixtures.byId("thor-ayn-gc-copy");
+        t = 0;
+        PadCalibration c = new PadCalibration(f.identity, PadClass.MODEL_GAMECUBE, t);
+        tick(c, 400);
+        c.onKey(0x131, 97, true, t += 100);
+        assertEquals("B", c.step().label);
+        c.onKey(0x131, 97, true, t += 100);
+        assertTrue(c.awaitingConfirm());
+        assertTrue(c.prompt().contains("already A"));
+        c.answerBoth(false, t += 100);
+        assertFalse(c.awaitingConfirm());
+        assertEquals("B", c.step().label);
+        c.onKey(0x131, 97, true, t += 100);
+        c.answerBoth(true, t += 100);
+        assertEquals("X", c.step().label);
+        Object shared = Json.asObject(c.profile(null).get("buttons")).get("scan:0x131");
+        assertEquals(Arrays.asList("A", "B"), shared);
+        c.back(t += 100);
+        assertEquals("B", c.step().label);
+        c.onKey(0x130, 96, true, t += 100);
+        assertEquals("X", c.step().label);
+        assertEquals("B", Json.asObject(c.profile(null).get("buttons")).get("scan:0x130"));
+        assertEquals("A", Json.asObject(c.profile(null).get("buttons")).get("scan:0x131"));
+    }
+
+    @Test
+    public void weakStickPushAsksForMore() throws IOException {
+        PadFixtures.Fixture f = PadFixtures.byId("thor-ayn-gc-copy");
+        t = 0;
+        PadCalibration c = new PadCalibration(f.identity, PadClass.MODEL_GAMECUBE, t);
+        tick(c, 400);
+        while (c.step().kind != PadCalibration.Kind.STICK) {
+            c.skip(t += 10);
+        }
+        hold(c, MotionEvent.AXIS_Y, 0.25f);
+        assertEquals("left_y", c.step().slot);
+        assertEquals("Push further", c.message());
+        hold(c, MotionEvent.AXIS_Y, 0.6f);
+        assertEquals("left_x", c.step().slot);
+    }
+
+    @Test
+    public void triggerOnAnAxisBecomesAnAxisAnswer() throws IOException {
+        PadFixtures.Fixture f = PadFixtures.byId("xbox360");
+        t = 0;
+        PadCalibration c = new PadCalibration(f.identity, null, t);
+        tick(c, 400);
+        while (!"LeftTrigger".equals(c.step().label)) {
+            c.skip(t += 10);
+        }
+        c.onAxis(MotionEvent.AXIS_LTRIGGER, 0.9f, t += 10);
+        assertEquals("RightTrigger", c.step().label);
+        c.onAxis(MotionEvent.AXIS_LTRIGGER, 0.95f, t += 10);
+        assertEquals("RightTrigger", c.step().label);
+        c.onAxis(MotionEvent.AXIS_RTRIGGER, 1f, t += 10);
+        Map<String, Object> axes = Json.asObject(c.profile(null).get("axes"));
+        assertEquals("LTRIGGER", Json.str(Json.asObject(axes.get("left_trigger")), "axis", null));
+        assertEquals("RTRIGGER", Json.str(Json.asObject(axes.get("right_trigger")), "axis", null));
+        assertEquals("generic", c.profile(null).get("model"));
+    }
+}

@@ -1,0 +1,145 @@
+{
+ "format": "pad-fixture",
+ "version": 1,
+ "id": "thor-ayn-gc-copy-ignored",
+ "source": "thor-evidence/thor-dumpsys-input.txt:18-29,178-231; thor-getevent-lp-pad.txt:1-21; thor-press-test2.txt; Vendor_2020_Product_0111.kl (AYN Thor, Android 13, 2026-10-02)",
+ "measured": true,
+ "derived": [
+  "device.hasKeys",
+  "presses.keyCode"
+ ],
+ "stickPress": 0.24,
+ "device": {
+  "name": "Nintendo Nintendo GameCube Controller",
+  "vendor": 8224,
+  "product": 273,
+  "descriptor": "45336d6f85bed0c9ed60722b2e9865f72fccd5bf",
+  "sources": [
+   "KEYBOARD",
+   "GAMEPAD",
+   "JOYSTICK"
+  ],
+  "external": true,
+  "controllerNumber": 3,
+  "axes": [
+   {
+    "axis": "X",
+    "min": -1,
+    "max": 1,
+    "flat": 0.00046
+   },
+   {
+    "axis": "Y",
+    "min": -1,
+    "max": 1,
+    "flat": 0.00046
+   },
+   {
+    "axis": "Z",
+    "min": -1,
+    "max": 1,
+    "flat": 0.00046
+   },
+   {
+    "axis": "RZ",
+    "min": -1,
+    "max": 1,
+    "flat": 0.00046
+   },
+   {
+    "axis": "GAS",
+    "min": 0,
+    "max": 1,
+    "flat": 0
+   },
+   {
+    "axis": "BRAKE",
+    "min": 0,
+    "max": 1,
+    "flat": 0
+   },
+   {
+    "axis": "HAT_X",
+    "min": -1,
+    "max": 1,
+    "flat": 0
+   },
+   {
+    "axis": "HAT_Y",
+    "min": -1,
+    "max": 1,
+    "flat": 0
+   }
+  ],
+  "hasKeys": [
+   "BUTTON_A",
+   "BUTTON_B",
+   "BUTTON_C",
+   "BUTTON_X",
+   "BUTTON_Y",
+   "BUTTON_Z",
+   "BUTTON_L1",
+   "BUTTON_R1",
+   "BUTTON_L2",
+   "BUTTON_R2",
+   "BUTTON_THUMBL",
+   "BUTTON_THUMBR",
+   "BUTTON_SELECT",
+   "BUTTON_START",
+   "BUTTON_MODE",
+   "DPAD_UP",
+   "DPAD_DOWN",
+   "DPAD_LEFT",
+   "DPAD_RIGHT"
+  ]
+ },
+ "context": {
+  "profiles": {},
+  "ignore": [
+   "sig:2020:0111:nintendo nintendo gamecube controller"
+  ]
+ },
+ "expect": {
+  "rule": "ignored",
+  "ignored": true,
+  "model": "gamecube",
+  "family": "gamecube",
+  "deviceKey": "sig:2020:0111:nintendo nintendo gamecube controller"
+ },
+ "presses": [
+  {
+   "label": "A",
+   "slot": 2,
+   "scan": 305,
+   "keyCode": "BUTTON_B",
+   "expect": {
+    "gcbridge": null,
+    "is2l": null,
+    "iswitch2late": null
+   }
+  },
+  {
+   "label": "B",
+   "slot": 1,
+   "scan": 304,
+   "keyCode": "BUTTON_A",
+   "expect": {
+    "gcbridge": null,
+    "is2l": null,
+    "iswitch2late": null
+   }
+  },
+  {
+   "label": "X",
+   "slot": 4,
+   "scan": 307,
+   "keyCode": "BUTTON_X",
+   "expect": {
+    "gcbridge": null,
+    "is2l": null,
+    "iswitch2late": null
+   }
+  }
+ ],
+ "axisSamples": []
+}

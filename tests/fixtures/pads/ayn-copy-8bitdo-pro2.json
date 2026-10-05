@@ -1,0 +1,119 @@
+{
+ "format": "pad-fixture",
+ "version": 1,
+ "id": "ayn-copy-8bitdo-pro2",
+ "source": "synthetic: the Thor copy's template with an 8BitDo Pro 2 name; \"pro 2\" is not the Switch 2 Pro token",
+ "measured": false,
+ "stickPress": 0.24,
+ "device": {
+  "name": "8BitDo Pro 2",
+  "vendor": 8224,
+  "product": 273,
+  "descriptor": "",
+  "sources": [
+   "KEYBOARD",
+   "GAMEPAD",
+   "JOYSTICK"
+  ],
+  "external": true,
+  "controllerNumber": 3,
+  "axes": [
+   {
+    "axis": "X",
+    "min": -1,
+    "max": 1,
+    "flat": 0.00046
+   },
+   {
+    "axis": "Y",
+    "min": -1,
+    "max": 1,
+    "flat": 0.00046
+   },
+   {
+    "axis": "Z",
+    "min": -1,
+    "max": 1,
+    "flat": 0.00046
+   },
+   {
+    "axis": "RZ",
+    "min": -1,
+    "max": 1,
+    "flat": 0.00046
+   },
+   {
+    "axis": "GAS",
+    "min": 0,
+    "max": 1,
+    "flat": 0
+   },
+   {
+    "axis": "BRAKE",
+    "min": 0,
+    "max": 1,
+    "flat": 0
+   },
+   {
+    "axis": "HAT_X",
+    "min": -1,
+    "max": 1,
+    "flat": 0
+   },
+   {
+    "axis": "HAT_Y",
+    "min": -1,
+    "max": 1,
+    "flat": 0
+   }
+  ],
+  "hasKeys": [
+   "BUTTON_A",
+   "BUTTON_B",
+   "BUTTON_C",
+   "BUTTON_X",
+   "BUTTON_Y",
+   "BUTTON_Z",
+   "BUTTON_L1",
+   "BUTTON_R1",
+   "BUTTON_L2",
+   "BUTTON_R2",
+   "BUTTON_THUMBL",
+   "BUTTON_THUMBR",
+   "BUTTON_SELECT",
+   "BUTTON_START",
+   "BUTTON_MODE",
+   "DPAD_UP",
+   "DPAD_DOWN",
+   "DPAD_LEFT",
+   "DPAD_RIGHT"
+  ]
+ },
+ "expect": {
+  "rule": "builtin-untouched",
+  "model": null,
+  "family": "generic",
+  "deviceKey": "sig:2020:0111:8bitdo pro 2",
+  "table": "none",
+  "flip": [],
+  "leftX": "X",
+  "leftY": "Y",
+  "rightX": "Z",
+  "rightY": "RZ",
+  "fullScale": {
+   "left": 1.0,
+   "right": 1.0
+  },
+  "triggers": {
+   "left": "BRAKE",
+   "right": "GAS",
+   "centred": false
+  },
+  "dropAxes": [],
+  "analogTriggers": true,
+  "unavailable": [],
+  "rawReport": false
+ },
+ "presses": [],
+ "axisSamples": []
+}

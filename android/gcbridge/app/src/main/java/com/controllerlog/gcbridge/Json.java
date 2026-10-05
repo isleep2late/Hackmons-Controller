@@ -157,9 +157,12 @@ public final class Json {
         return o != null && o.get(key) != null;
     }
 
+    static final int MAX_DEPTH = 64;
+
     private static final class Parser {
         private final String s;
         private int pos;
+        private int depth;
 
         Parser(String s) {
             this.s = s;
@@ -187,10 +190,18 @@ public final class Json {
             }
             char c = s.charAt(pos);
             switch (c) {
-                case '{':
-                    return object();
-                case '[':
-                    return array();
+                case '{': {
+                    nest();
+                    Map<String, Object> o = object();
+                    depth--;
+                    return o;
+                }
+                case '[': {
+                    nest();
+                    List<Object> a = array();
+                    depth--;
+                    return a;
+                }
                 case '"':
                     return string();
                 case 't':
@@ -207,6 +218,12 @@ public final class Json {
                         return number();
                     }
                     throw error("unexpected '" + c + "'");
+            }
+        }
+
+        private void nest() {
+            if (++depth > MAX_DEPTH) {
+                throw error("nested deeper than " + MAX_DEPTH);
             }
         }
 

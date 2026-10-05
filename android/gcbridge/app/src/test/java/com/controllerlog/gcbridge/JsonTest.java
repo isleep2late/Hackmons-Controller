@@ -7,6 +7,7 @@ import static org.junit.Assert.fail;
 
 import org.junit.Test;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -14,6 +15,8 @@ import java.util.List;
 import java.util.Map;
 
 public class JsonTest {
+
+    private static final int LIMIT = 64;
 
     @Test
     public void parsesNestedStructures() {
@@ -40,6 +43,48 @@ public class JsonTest {
                 // ok
             }
         }
+    }
+
+    @Test
+    public void deepNestingIsRefusedInsteadOfOverflowingTheStack() {
+        StringBuilder open = new StringBuilder();
+        for (int i = 0; i < 100_000; i++) {
+            open.append('[');
+        }
+        String[] deep = {open.toString(), open.toString().replace('[', '{').replace("{", "{\"a\":")};
+        for (String bad : deep) {
+            try {
+                Json.parse(bad);
+                fail("accepted " + bad.length() + " nested levels");
+            } catch (IllegalArgumentException expected) {
+                assertTrue(expected.getMessage(), expected.getMessage().contains("nested deeper than"));
+            }
+        }
+        String ok = repeat("[", LIMIT) + repeat("]", LIMIT);
+        assertEquals(1, Json.asArray(Json.parse(ok)).size());
+        try {
+            Json.parse("[" + ok + "]");
+            fail("accepted " + (LIMIT + 1) + " levels");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("nested deeper than"));
+        }
+        assertEquals(1001, Json.asArray(Json.parse("[" + repeat("[],", 1000) + "[]]")).size());
+    }
+
+    @Test
+    public void profileImportCatchesWhatTheParserThrows() throws IOException {
+        String src = TestFiles.javaSource("MainActivity.java");
+        String body = TestFiles.body(src, "protected void onActivityResult(").replaceAll("\\s+", "");
+        assertTrue(body, body.contains("Json.asObject(Json.parse("));
+        assertTrue(body, body.contains("catch(IOException|RuntimeExceptione){log(\"ERRORimportingtheprofile:"));
+    }
+
+    private static String repeat(String s, int n) {
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < n; i++) {
+            b.append(s);
+        }
+        return b.toString();
     }
 
     @Test

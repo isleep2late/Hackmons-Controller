@@ -36,8 +36,9 @@ Ready-made builds are attached to the repository's
 | `controllerlog-<version>-linux-x64.tar.gz` | the same for Linux (x86-64; the bundled SDL3 is built on the latest Ubuntu LTS, so it needs a glibc at least that new): `./live`, `./doctor`, `./view`, `./controllerlog <command>`; SDL3 is included |
 
 Until GitHub Actions can publish releases for this repository, the same files are committed
-in [`releases/v0.2.1/`](releases/v0.2.1/): open a file there on GitHub and use its
-**Download raw file** button.
+in [`releases/v0.2.1/`](releases/v0.2.1/) (the APK of GC Bridge 0.2.2 is in
+[`releases/v0.2.2/`](releases/v0.2.2/); the PC programs there are still 0.2.1): open a file
+there on GitHub and use its **Download raw file** button.
 
 `python scripts/build_bundle.py --platform windows|linux` builds the bundles (both can be
 built on Linux). Developers can instead install the package as described below.
@@ -65,7 +66,7 @@ built on Linux). Developers can instead install the package as described below.
 | BizHawk `.bk2` writer, GSE → bk2 conversion | Built from BizHawk's source; not yet loaded in a real BizHawk |
 | Virtual controller replay / bridge (ViGEmBus) | Tested on Windows (XInput read-back) |
 | Android capture over adb | Tested only against a simulated adb |
-| **GC Bridge** Android app: `.ctlog` recording, floating overlay, system-wide button capture, USB capture, Bluetooth reader | Gamepad mode and the overlay tried on a Galaxy Z TriFold (button order and stick direction fixed in 0.2.1); recording, button capture, USB capture and Bluetooth not yet tried. 35 JVM unit tests cross-checked against the Python code |
+| **GC Bridge** Android app: `.ctlog` recording, floating overlay, system-wide button capture, USB capture, Bluetooth reader | Gamepad mode and the overlay tried on a Galaxy Z TriFold (button order and stick direction fixed in 0.2.1). On the AYN Thor the pad arrives as AYN's copy: its device data and every button press were captured there, and 0.2.2 reads that copy (not yet run on the Thor). Recording, button capture, USB capture and Bluetooth not yet tried. JVM unit tests cross-checked against the Python code and the shared Thor fixtures |
 | Switch 2 over Bluetooth LE (`switch2_ble.py`) | Built from protocol research and sniffer captures; **never run against a controller** |
 | BizHawk optimizer (Lua socket bot) | Tested against a model of BizHawk under a real Lua runtime; not against EmuHawk |
 

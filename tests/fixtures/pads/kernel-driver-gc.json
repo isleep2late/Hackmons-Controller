@@ -1,0 +1,193 @@
+{
+ "format": "pad-fixture",
+ "version": 1,
+ "id": "kernel-driver-gc",
+ "source": "synthetic: no kernel driver for the Switch 2 pads exists yet (map 09 section 4.4)",
+ "measured": false,
+ "stickPress": 0.24,
+ "device": {
+  "name": "Nintendo Switch 2 GameCube Controller",
+  "vendor": 1406,
+  "product": 8307,
+  "descriptor": "",
+  "sources": [
+   "KEYBOARD",
+   "GAMEPAD",
+   "JOYSTICK"
+  ],
+  "external": true,
+  "controllerNumber": 1,
+  "axes": [
+   {
+    "axis": "X",
+    "min": -1,
+    "max": 1,
+    "flat": 0.0
+   },
+   {
+    "axis": "Y",
+    "min": -1,
+    "max": 1,
+    "flat": 0.0
+   },
+   {
+    "axis": "RX",
+    "min": -1,
+    "max": 1,
+    "flat": 0.0
+   },
+   {
+    "axis": "RY",
+    "min": -1,
+    "max": 1,
+    "flat": 0.0
+   },
+   {
+    "axis": "Z",
+    "min": -1,
+    "max": 1,
+    "flat": 0.0
+   },
+   {
+    "axis": "RZ",
+    "min": -1,
+    "max": 1,
+    "flat": 0.0
+   },
+   {
+    "axis": "HAT_X",
+    "min": -1,
+    "max": 1,
+    "flat": 0.0
+   },
+   {
+    "axis": "HAT_Y",
+    "min": -1,
+    "max": 1,
+    "flat": 0.0
+   }
+  ],
+  "hasKeys": [
+   "BUTTON_A",
+   "BUTTON_B",
+   "BUTTON_X",
+   "BUTTON_Y",
+   "BUTTON_L1",
+   "BUTTON_R1",
+   "BUTTON_START",
+   "BUTTON_SELECT",
+   "BUTTON_MODE"
+  ]
+ },
+ "expect": {
+  "rule": "s2-kernel-driver",
+  "model": "gamecube",
+  "family": "gamecube",
+  "deviceKey": "sig:057e:2073:nintendo switch 2 gamecube controller",
+  "table": "none",
+  "flip": [],
+  "leftX": "X",
+  "leftY": "Y",
+  "rightX": "RX",
+  "rightY": "RY",
+  "fullScale": {
+   "left": 1.0,
+   "right": 1.0
+  },
+  "triggers": {
+   "left": "Z",
+   "right": "RZ",
+   "centred": true
+  },
+  "dropAxes": [],
+  "analogTriggers": true,
+  "unavailable": [],
+  "rawReport": false
+ },
+ "presses": [
+  {
+   "label": "A",
+   "slot": 0,
+   "scan": 304,
+   "keyCode": "BUTTON_A",
+   "expect": {
+    "gcbridge": "south",
+    "is2l": "A",
+    "iswitch2late": "BUTTON_A"
+   }
+  },
+  {
+   "label": "B",
+   "slot": 0,
+   "scan": 305,
+   "keyCode": "BUTTON_B",
+   "expect": {
+    "gcbridge": "east",
+    "is2l": "B",
+    "iswitch2late": "BUTTON_B"
+   }
+  },
+  {
+   "label": "Y",
+   "slot": 0,
+   "scan": 308,
+   "keyCode": "BUTTON_Y",
+   "expect": {
+    "gcbridge": "west",
+    "is2l": "Y",
+    "iswitch2late": "BUTTON_Y"
+   }
+  }
+ ],
+ "axisSamples": [
+  {
+   "axis": "Y",
+   "raw": 0.5,
+   "canonical": "left_y",
+   "value": 0.5,
+   "expect": "LeftStickDown"
+  },
+  {
+   "axis": "RY",
+   "raw": 0.5,
+   "canonical": "right_y",
+   "value": 0.5,
+   "expect": "RightStickDown"
+  },
+  {
+   "axis": "RX",
+   "raw": -0.5,
+   "canonical": "right_x",
+   "value": -0.5,
+   "expect": "RightStickLeft"
+  },
+  {
+   "axis": "Z",
+   "raw": -1.0,
+   "canonical": "left_trigger",
+   "value": 0.0,
+   "expect": null
+  },
+  {
+   "axis": "Z",
+   "raw": 0.0,
+   "canonical": "left_trigger",
+   "value": 0.5,
+   "expect": "LeftTrigger"
+  },
+  {
+   "axis": "RZ",
+   "raw": 1.0,
+   "canonical": "right_trigger",
+   "value": 1.0,
+   "expect": "RightTrigger"
+  }
+ ],
+ "demotions": [
+  {
+   "scan": 544,
+   "keyCode": "DPAD_UP",
+   "demotes": false
+  }
+ ]
+}
