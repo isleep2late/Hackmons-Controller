@@ -60,6 +60,14 @@ over USB or (experimentally) Bluetooth LE. What each approach on Android can and
 | Shizuku / ADB-started helper reading `/dev/input` | not yet | would give system-wide sticks without a PC, same technique as the ADB capture above |
 | Custom Bluetooth host stack (BlueRetro-style) | no | not possible without root: classic L2CAP sockets and the HID host API are system-only |
 
+**Using the controller in an emulator (RetroArch, Dolphin, …) at the same time:** GC Bridge
+never feeds input to other apps, so an emulator sees the controller only if Android itself has
+it as a gamepad. Recording, the overlay and Button capture leave Android's gamepad alone, but
+USB capture and Bluetooth capture take the controller away from Android entirely, and the
+Switch 2 pads need gamepad mode before Android sees them at all. RetroArch then needs its
+buttons bound by hand (it has no autoconfig profile for these pads):
+[android/README.md](../android/README.md#using-the-controller-in-another-app-retroarch-emulators-games).
+
 **Showing the overlay on the phone:** start `controllerlog live --host 0.0.0.0`
 on the PC and open `http://<pc-ip>:8765/` in the phone's browser, or in a
 floating-window browser over the game. There is no password: while it runs,

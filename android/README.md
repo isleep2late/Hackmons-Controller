@@ -110,6 +110,56 @@ positive". The PC's `controllerlog live --adb` uses the same table. The same evi
 Nintendo-report (0x05) readers used by USB capture, Bluetooth capture and the PC: the
 GameCube's A, B, X, Y live in the bits of those names, so A is `south` and B is `west`.
 
+### Using the controller in another app (RetroArch, emulators, games)
+
+GC Bridge never hands input to other apps: it reads controllers, it does not create one.
+An emulator sees a controller only if **Android itself** has it as a gamepad, so this is
+the order to check.
+
+1. **Stop any capture.** While **USB capture** or **Bluetooth capture** runs, Android has no
+   gamepad for that controller at all — USB capture claims the HID interface, and the
+   Bluetooth reader connects without Android's HID host. Tap *Stop USB capture* / *Stop*, and
+   replug (USB) or power-cycle the pad (Bluetooth). Recording and the overlay are not what
+   takes the pad away: *Record*, *Show overlay* and *Button capture* all leave Android's
+   gamepad alone, so leave those on if you want the overlay over your game.
+2. **Switch 2 GameCube / Pro over USB-C: use gamepad mode.** *Start controller (gamepad mode)*
+   is the mode that gives the pad to Android (it runs by itself when you plug the controller
+   in, if you let GC Bridge open for it). Without it these pads stay silent until the init
+   sequence is sent, so they appear dead in every app.
+3. **Check that Android sees it before blaming the emulator.** The **Controllers** section
+   lists every gamepad Android knows, with the rule that classified it; the diagnostics list
+   further down shows each input device's sources and axes. If the pad is listed and its
+   buttons move the live preview on GC Bridge's own screen, Android has the gamepad and the
+   problem is the emulator's mapping. If it is *not* listed, no app on the phone can see it:
+   go back to steps 1–2, try another USB-C cable or port (charge-only cables and some hubs
+   never enumerate the device), and on Bluetooth re-pair it in Android's settings.
+4. **In RetroArch, bind the pad by hand.** There is no autoconfig profile for the Switch 2
+   GameCube / Pro pads, and vendor copies (AYN's, for example) report ids that match nothing,
+   so RetroArch's autoconfig lookup fails and every button comes out unbound even though the
+   pad works everywhere else. Fix it in *Settings → Input → Port 1 Controls → Set All
+   Controls* and press each button as asked. Useful while you do:
+   * *Settings → Input → Max Users* must be at least 1, and the port's **Device Index** must
+     name your pad, not `N/A`. If it says `N/A`, RetroArch did not bind the device to that
+     port — set it there first.
+   * If a wrong autoconfig keeps coming back over your binds, turn off
+     *Settings → Input → Autoconfig* (auto-configure joypads) and bind again; don't use
+     *Save Autoconfig* while the binds are still wrong.
+   * Android's generic HID driver numbers these pads' buttons in the report's own order
+     (B, A, Y, X, R, ZR, Start, …, see the table above), so RetroArch will print names that
+     don't match the plastic. Bind by where the button is under your thumb, not by the name
+     it shows.
+   * RetroArch binds the device it saw at the time: if you plugged in or restarted capture
+     since, unplug, replug and re-check Port 1 Controls.
+5. **Other emulators.** Anything that uses Android's standard gamepad API (standalone Dolphin,
+   melonDS, Citra/Yuzu forks, Delta, GSE) needs no extra step once Android has the gamepad,
+   and most offer the same manual "press the button you want" mapping screen. If *no* app on
+   the phone sees the pad, the problem is at the Android level (steps 1–3), not in the
+   emulator.
+
+Still stuck: **Export diagnostics** (or *Copy all*) with the controller connected and the
+emulator's own input screen open, and send that block — it names every input device Android
+reports, the rule GC Bridge applied, and the last 60 pad keys.
+
 ### Where that table was measured, and the AYN Thor
 
 The table above was measured on a Galaxy Z TriFold, where Android sees the pad itself
