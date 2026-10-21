@@ -30,7 +30,7 @@ def test_docs_only_name_real_subcommands():
     cmds = _subcommands()
     bad = []
     for f in DOCS:
-        for m in re.finditer(r"(?:^|`)controllerlog ([a-z][a-z0-9]*)", _text(f), re.M):
+        for m in re.finditer(r"(?:^|`)controllerlog ([a-z][a-z0-9-]*[a-z0-9])", _text(f), re.M):
             if m.group(1) not in cmds:
                 bad.append(f"{f.name}: controllerlog {m.group(1)}")
     assert not bad, bad

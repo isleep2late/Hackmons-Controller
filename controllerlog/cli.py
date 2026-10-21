@@ -726,6 +726,14 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_udev_rules(args: argparse.Namespace) -> int:
+    from . import udev
+    if args.install:
+        return udev.install()
+    sys.stdout.write(udev.RULES)
+    return 0
+
+
 def cmd_layouts(args: argparse.Namespace) -> int:
     from .layouts import list_layouts, load_layout
     for name in list_layouts():
@@ -924,6 +932,12 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("doctor", help="check SDL3, ViGEmBus/HidHide (uinput on Linux), Bluetooth adapter, adb, ffmpeg (read-only)")
     sp.add_argument("--json", action="store_true")
     sp.set_defaults(func=cmd_doctor)
+
+    sp = sub.add_parser("udev-rules", help="Linux: print (or --install with sudo) the udev rules for "
+                                           "Switch 2 controllers over USB and virtual controllers")
+    sp.add_argument("--install", action="store_true",
+                    help="write them to /etc/udev/rules.d/60-controllerlog.rules and reload udev")
+    sp.set_defaults(func=cmd_udev_rules)
 
     from .optimize import add_cli as add_optimize_cli
     add_optimize_cli(sub)

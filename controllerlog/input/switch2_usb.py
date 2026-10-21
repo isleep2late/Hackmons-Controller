@@ -21,6 +21,7 @@ verified against a real NSO GameCube controller over USB. Needs
 from __future__ import annotations
 
 import logging
+import sys
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
@@ -28,6 +29,7 @@ from typing import Any, Callable
 from ..hub import Hub, now_ns
 from ..model import (AXIS, BUTTON, BUTTON_INDEX, FAMILY_GAMECUBE, FAMILY_SWITCH,
                      DeviceInfo, InputEvent, PadState)
+from ..udev import INSTALL_HINT, access_problem, node_for_hid_path
 from .base import Backend
 
 log = logging.getLogger(__name__)
@@ -484,6 +486,7 @@ class Switch2UsbBackend(Backend):
         self._finder = finder
         self.reports = 0
         self.report_rate_hz = 0.0
+        self._open_warning: str | None = None
 
     def run(self) -> None:
         if self._finder is find_controllers:
@@ -499,10 +502,19 @@ class Switch2UsbBackend(Backend):
     def _session(self, found: FoundController) -> None:
         try:
             t = self._factory(found)
-        except OSError as e:  # opened by someone exclusively, or unplugged meanwhile
-            log.warning("switch2-usb: can't open %s: %s", NAMES[found.model], e)
+        except OSError as e:  # no permission, opened by someone exclusively, or unplugged meanwhile
+            msg = f"can't open {NAMES[found.model]}: {e}"
+            problem = access_problem(node_for_hid_path(found.hid_path))
+            if problem:
+                msg += f" ({problem}: {INSTALL_HINT})"
+            elif sys.platform.startswith("linux"):
+                msg += " (in use by another program? only one 'live' can read it at a time)"
+            if msg != self._open_warning:   # once per cause, not every rescan
+                log.warning("switch2-usb: %s", msg)
+                self._open_warning = msg
             self._stop.wait(self.rescan_s)
             return
+        self._open_warning = None
         dev = None
         try:
             cal = start_controller(t, found.model, self.player)
