@@ -1,7 +1,8 @@
-"""Virtual game controller output (Xbox 360 or DualShock 4) through ViGEmBus.
+"""Virtual game controller output (Xbox 360 or DualShock 4): ViGEmBus or uinput.
 
-Wraps `vgamepad <https://github.com/yannbouteiller/vgamepad>`_, which talks to
-the ViGEmBus kernel driver on Windows (and to uinput on Linux). Games see the
+On Windows this wraps `vgamepad <https://github.com/yannbouteiller/vgamepad>`_,
+which talks to the ViGEmBus kernel driver. On Linux it writes ``/dev/uinput``
+directly (:mod:`.uinput_pad`, no extra packages). Games see the
 virtual pad as a genuine wired controller, so anything expressed in the
 canonical model (:mod:`controllerlog.model`) can be "played" into a game:
 recorded runs, TAS frame tables, or a live physical controller (the bridge).
@@ -12,9 +13,9 @@ Canonical -> native conversion (verified by reading the pads back through SDL3):
   0..32767 -> 0..255, sticks int16 with **Y inverted** (canonical Y is
   negative = up, XInput Y is positive = up; -32768 clamps to 32767). Opposite
   d-pad directions are passed through unchanged (XInput allows them). On
-  Linux vgamepad writes the Y value straight into evdev ``ABS_Y`` (down =
-  positive, like canonical), so Y is not inverted there (see
-  :data:`X360_INVERT_Y`; read from vgamepad's source, untested).
+  Linux the Y value goes straight into evdev ``ABS_Y`` (down = positive, like
+  canonical), so Y is not inverted there (see :data:`X360_INVERT_Y`), and the
+  d-pad becomes a hat where opposite directions cancel.
 * DualShock 4: Cross/Circle/Square/Triangle, Share = back, Options = start,
   PS = guide, touchpad click = touchpad, L2/R2 digital bits set past
   :data:`~controllerlog.model.TRIGGER_PRESS_THRESHOLD`, sticks 0..255 with
@@ -28,6 +29,7 @@ X360) are dropped unless a ``remap`` sends them somewhere.
 from __future__ import annotations
 
 import logging
+import os
 import sys
 import time
 from dataclasses import dataclass
@@ -94,9 +96,10 @@ DS4_DPAD_NONE = 0x8
 _DS4_HAT = {(1, 0): 0, (1, 1): 1, (0, 1): 2, (-1, 1): 3, (-1, 0): 4,
             (-1, -1): 5, (0, -1): 6, (1, -1): 7, (0, 0): DS4_DPAD_NONE}
 
-# vgamepad's Windows backend takes XInput sticks (Y up = positive); its Linux backend
-# copies sThumbLY into evdev ABS_Y unchanged, where down is positive like canonical.
+# vgamepad (Windows) takes XInput sticks (Y up = positive); the uinput pad (Linux)
+# writes evdev ABS_Y, where down is positive like canonical.
 X360_INVERT_Y = sys.platform == "win32"
+USE_UINPUT = sys.platform.startswith("linux")
 
 _TRIGGERS = ("left_trigger", "right_trigger")
 _LT, _RT = AXIS_INDEX["left_trigger"], AXIS_INDEX["right_trigger"]
@@ -241,10 +244,15 @@ def _driver_help(err: BaseException) -> str:
                 f"ViGEmBus_*.exe from {VIGEMBUS_URL} (the project is retired but its last "
                 "release still works on Windows 10/11), reboot if asked, then retry. "
                 f"Underlying error: {type(err).__name__}: {err}")
-    return ("Virtual controllers need vgamepad's Linux dependencies: libevdev "
-            "(pip install libevdev) and write access to /dev/uinput (sudo modprobe uinput "
-            "and a udev rule or the 'input' group). "
-            f"Underlying error: {type(err).__name__}: {err}")
+    if USE_UINPUT:
+        from .uinput_pad import UINPUT_PATH  # noqa: PLC0415
+        return (f"Virtual controllers need write access to {UINPUT_PATH}: run "
+                "'sudo modprobe uinput', then give your user access (a udev rule such as "
+                'KERNEL=="uinput", TAG+="uaccess" in /etc/udev/rules.d/60-uinput.rules, or '
+                "the group that owns the device). "
+                f"Underlying error: {type(err).__name__}: {err}")
+    return ("Virtual controllers are only supported on Windows (ViGEmBus) and Linux "
+            f"(uinput). Underlying error: {type(err).__name__}: {err}")
 
 
 def load_vgamepad() -> Any:
@@ -266,6 +274,13 @@ def load_vgamepad() -> Any:
 
 def virtual_pad_unavailable_reason() -> str | None:
     """``None`` if virtual controllers can be created, else a human-readable reason."""
+    if USE_UINPUT:
+        from .uinput_pad import UINPUT_PATH  # noqa: PLC0415
+        if os.access(UINPUT_PATH, os.W_OK):
+            return None
+        err = (FileNotFoundError(f"{UINPUT_PATH} does not exist")
+               if not os.path.exists(UINPUT_PATH) else PermissionError(f"{UINPUT_PATH} is not writable"))
+        return _driver_help(err)
     try:
         load_vgamepad()
     except VirtualPadUnavailable as e:
@@ -304,18 +319,28 @@ class VirtualPad:
     def __init__(self, target: str = "x360", remap: Mapping[str, str] | None = None) -> None:
         self.target: TargetInfo = TARGETS[normalize_target(target)]
         self.remap = validate_remap(remap)
-        vg = load_vgamepad()
-        cls = vg.VX360Gamepad if self.target.name == "x360" else vg.VDS4Gamepad
-        try:
-            self._dev: Any = cls()
-        except Exception as e:  # AssertionError / Exception('VIGEM_ERROR_...')
-            raise VirtualPadUnavailable(_driver_help(e)) from e
+        if USE_UINPUT:
+            from .uinput_pad import UinputPad  # noqa: PLC0415
+            try:
+                self._dev: Any = UinputPad(self.target.name)
+            except OSError as e:
+                raise VirtualPadUnavailable(_driver_help(e)) from e
+        else:
+            vg = load_vgamepad()
+            cls = vg.VX360Gamepad if self.target.name == "x360" else vg.VDS4Gamepad
+            try:
+                self._dev = cls()
+            except Exception as e:  # AssertionError / Exception('VIGEM_ERROR_...')
+                raise VirtualPadUnavailable(_driver_help(e)) from e
         self._staged = PadState()
         self._last: tuple[int, ...] | None = None
         self.updates = 0
         self.closed = False
         self._report = _x360_native_report if self.target.name == "x360" else ds4_report
-        self._send = self._send_x360 if self.target.name == "x360" else self._send_ds4
+        if USE_UINPUT:
+            self._send = self._dev.send
+        else:
+            self._send = self._send_x360 if self.target.name == "x360" else self._send_ds4
         log.info("virtual %s connected", self.target.label)
 
     # -- identity --------------------------------------------------------------
@@ -391,6 +416,9 @@ class VirtualPad:
         finally:
             self.closed = True
             dev, self._dev = self._dev, None
+            self._send = None
+            if USE_UINPUT:
+                dev.close()
             del dev  # vgamepad unplugs the target in __del__ (last reference)
             log.info("virtual %s disconnected", self.target.label)
 
@@ -434,7 +462,8 @@ def create_virtual_pad(target: str = "x360", remap: Mapping[str, str] | None = N
     """Plug in a virtual controller. ``target``: ``"x360"`` (XInput) or ``"ds4"``.
 
     Raises :class:`VirtualPadUnavailable` with install instructions when the
-    ViGEmBus driver (or the vgamepad package) is missing.
+    ViGEmBus driver (or the vgamepad package) is missing, or on Linux when
+    ``/dev/uinput`` cannot be opened for writing.
     """
     return VirtualPad(target, remap=remap)
 
@@ -444,4 +473,4 @@ __all__ = ["VirtualPad", "VirtualPadError", "VirtualPadUnavailable", "TargetInfo
            "remap_state", "validate_remap", "x360_report", "ds4_report", "X360_INVERT_Y",
            "trigger_to_u8",
            "stick_to_xinput", "stick_to_u8", "ds4_hat", "load_vgamepad",
-           "virtual_pad_unavailable_reason"]
+           "virtual_pad_unavailable_reason", "USE_UINPUT"]

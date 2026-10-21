@@ -13,7 +13,8 @@ ControllerLog fixes that layer in software:
    is 4 ms.
 2. **Log and display** every input: the overlay, recordings, stats and renders.
 3. **Re-emit** (optional). `controllerlog live --bridge x360` mirrors the
-   controller onto a virtual Xbox 360 pad through ViGEmBus, so XInput-only
+   controller onto a virtual Xbox 360 pad (ViGEmBus on Windows, uinput on
+   Linux), so XInput-only
    games accept it. This is the same idea as DS4Windows and BetterJoy, but it
    works for every family SDL supports. Use
    [HidHide](https://github.com/nefarius/HidHide) to hide the real pad from the

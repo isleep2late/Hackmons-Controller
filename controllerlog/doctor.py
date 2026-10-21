@@ -81,6 +81,15 @@ def check_vigem() -> Check:
     return Check("ViGEmBus", status, f"installed, driver {ver}", hints)
 
 
+def check_uinput() -> Check:
+    """Linux virtual controllers: write access to /dev/uinput."""
+    from .output.virtual_pad import virtual_pad_unavailable_reason  # noqa: PLC0415
+    reason = virtual_pad_unavailable_reason()
+    if reason is None:
+        return Check("uinput", "ok", "/dev/uinput is writable (virtual Xbox/DS4 controllers)")
+    return Check("uinput", "missing", "not writable - replay and bridge need it", [reason])
+
+
 def check_hidhide() -> Check:
     rows = _powershell_json(
         "Get-CimInstance Win32_PnPSignedDriver | Where-Object { $_.DeviceName -like '*HidHide*' } "
@@ -181,7 +190,8 @@ def check_tool(name: str, env: str, why: str, extra_paths: list[str] = ()) -> Ch
 
 def run_checks() -> list[Check]:
     local = os.environ.get("LOCALAPPDATA", "")
-    checks = [check_sdl(), check_vigem(), check_hidhide(), *check_bluetooth(), check_ble(),
+    virtual = [check_uinput()] if sys.platform.startswith("linux") else [check_vigem(), check_hidhide()]
+    checks = [check_sdl(), *virtual, *check_bluetooth(), check_ble(),
               check_tool("adb", "CONTROLLERLOG_ADB", "only needed for Android capture: install "
                          "Android SDK platform-tools",
                          [os.path.join(local, "Android", "Sdk", "platform-tools", "adb.exe")]),
