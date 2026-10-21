@@ -1,7 +1,8 @@
 """Tests for virtual controller output, replay and the bridge.
 
-Unit tests use a fake ``vgamepad`` module; ``@pytest.mark.vigem`` tests use the
-real ViGEmBus driver and read the virtual pads back through SDL3 / XInput.
+Unit tests use a fake ``vgamepad`` module (the Windows path, forced on every OS);
+``@pytest.mark.vigem`` tests use the real virtual-pad driver (ViGEmBus on Windows,
+uinput on Linux) and read the virtual pads back through SDL3 / XInput.
 """
 
 from __future__ import annotations
@@ -24,7 +25,7 @@ from controllerlog.model import (AXIS, AXIS_INDEX, BUTTON, BUTTON_INDEX, BUTTONS
 from controllerlog.output import (NINTENDO_LABEL_REMAP, TARGETS, VirtualPad, VirtualPadError,
                                   VirtualPadUnavailable, create_virtual_pad, remap_state,
                                   virtual_pad_unavailable_reason)
-from controllerlog.output.virtual_pad import (ds4_hat, ds4_report, stick_to_u8,
+from controllerlog.output.virtual_pad import (USE_UINPUT, ds4_hat, ds4_report, stick_to_u8,
                                               stick_to_xinput, trigger_to_u8, x360_report)
 from controllerlog.replay import ButtonTrigger, find_marker, replay_frames, replay_recording, wait_for_button
 
@@ -160,7 +161,14 @@ def fakevg(monkeypatch):
     monkeypatch.setitem(sys.modules, "vgamepad", vg.module)
     monkeypatch.setattr(VirtualPad, "RELEASE_DELAY_S", 0.0)
     monkeypatch.setattr("controllerlog.output.virtual_pad.X360_INVERT_Y", True)  # XInput convention
+    monkeypatch.setattr("controllerlog.output.virtual_pad.USE_UINPUT", False)
     return vg
+
+
+@pytest.fixture
+def vgpath(monkeypatch):
+    """Take the vgamepad (Windows) path on every OS."""
+    monkeypatch.setattr("controllerlog.output.virtual_pad.USE_UINPUT", False)
 
 
 # --- mapping ------------------------------------------------------------------------
@@ -331,14 +339,14 @@ def test_update_error_is_wrapped(fakevg):
         fakevg.fail_updates = False
 
 
-def test_unavailable_not_installed(monkeypatch):
+def test_unavailable_not_installed(vgpath, monkeypatch):
     monkeypatch.setitem(sys.modules, "vgamepad", None)
     with pytest.raises(VirtualPadUnavailable, match="pip install vgamepad"):
         create_virtual_pad()
     assert "pip install vgamepad" in virtual_pad_unavailable_reason()
 
 
-def test_unavailable_driver_missing_at_import(monkeypatch, tmp_path):
+def test_unavailable_driver_missing_at_import(vgpath, monkeypatch, tmp_path):
     pkg = tmp_path / "vgamepad"
     pkg.mkdir()
     (pkg / "__init__.py").write_text("raise Exception('VIGEM_ERROR_BUS_NOT_FOUND')\n")
@@ -352,7 +360,7 @@ def test_unavailable_driver_missing_at_import(monkeypatch, tmp_path):
         assert "github.com/nefarius/ViGEmBus/releases" in msg
 
 
-def test_unavailable_on_connect(monkeypatch):
+def test_unavailable_on_connect(vgpath, monkeypatch):
     mod = types.ModuleType("vgamepad")
 
     def boom():
@@ -666,7 +674,7 @@ def test_bridge_sink_is_fast(fakevg):
     assert per_event_us < 200
 
 
-def test_bridge_start_failure_removes_sink(monkeypatch):
+def test_bridge_start_failure_removes_sink(vgpath, monkeypatch):
     monkeypatch.setitem(sys.modules, "vgamepad", None)
     hub = Hub()
     with pytest.raises(VirtualPadUnavailable):
@@ -967,7 +975,9 @@ def test_live_roundtrip_through_sdl(live_hub, target):
         info = hub.devices[dev]
         assert info.sdl_type == TARGETS[target].sdl_type
         _prime(pad)
-        states = LIVE_STATES + ([mkstate("touchpad", "dpad_up", "dpad_down")] if target == "ds4" else [])
+        # The uinput DS4 has no touchpad (the kernel's driver puts it on a separate device).
+        touchpad = target == "ds4" and not USE_UINPUT
+        states = LIVE_STATES + ([mkstate("touchpad", "dpad_up", "dpad_down")] if touchpad else [])
         for st in states:
             pad.apply(st)
             exp = _expected_readback(target, st)

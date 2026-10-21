@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.2.3
+
+PC programs only (Windows and Linux bundles); the Android app stays at 0.2.2.
+
+* **`--bridge` and `replay` now work on Linux.** They write `/dev/uinput` directly
+  (`controllerlog/output/uinput_pad.py`, nothing to install) instead of needing `vgamepad`,
+  which the Linux bundle never had. The virtual pads copy what the kernel's own drivers expose:
+  `x360` is xpad's "Microsoft X-Box 360 pad" (045e:028e), `ds4` is hid-playstation's
+  "Sony Interactive Entertainment Wireless Controller" (054c:05c4; no touchpad click), so SDL and
+  other evdev readers map them like the real pads. Windows is unchanged (ViGEmBus).
+* Why it matters: emulators that read pads through SDL2 or a kernel without a driver for the
+  Switch 2 GameCube pad cannot start it, and on Linux `live` holds the pad while it runs, so
+  nothing else saw a single press. `live --bridge x360` gives them a normal Xbox 360 pad.
+  Checked on Ubuntu 24.04 (kernel 6.8): every button, both sticks and both triggers read back
+  correctly through SDL3 3.4 and through SDL2 2.30 (both targets).
+* New `live-bridge` / `live-bridge.cmd` launcher in the bundles: `live --record --open --bridge x360`.
+* `doctor` on Linux checks `/dev/uinput` write access (and says how to get it) instead of
+  reporting ViGEmBus/HidHide.
+
 ## v0.2.2
 
 GC Bridge only (the APK, `releases/v0.2.2/`); the PC bundles stay at 0.2.1.

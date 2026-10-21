@@ -33,7 +33,7 @@ Ready-made builds are attached to the repository's
 |---|---|
 | `GCBridge-<version>.apk` | the Android app; open it on the phone or `adb install -r` it ([install notes](android/README.md#install)) |
 | `controllerlog-<version>-windows-x64.zip` | portable Windows program: unzip anywhere, double-click `live.cmd` (overlay + recording), `doctor.cmd` or `view.cmd`, or run `controllerlog.cmd <command>`. Includes Python 3.14, all dependencies and SDL3.dll; nothing to install. Replay / `--bridge` still need the [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases) |
-| `controllerlog-<version>-linux-x64.tar.gz` | the same for Linux (x86-64; the bundled SDL3 is built on the latest Ubuntu LTS, so it needs a glibc at least that new): `./live`, `./doctor`, `./view`, `./controllerlog <command>`; SDL3 is included |
+| `controllerlog-<version>-linux-x64.tar.gz` | the same for Linux (x86-64; the bundled SDL3 is built on the latest Ubuntu LTS, so it needs a glibc at least that new): `./live`, `./live-bridge`, `./doctor`, `./view`, `./controllerlog <command>`; SDL3 is included |
 
 Until GitHub Actions can publish releases for this repository, the same files are committed
 in [`releases/v0.2.1/`](releases/v0.2.1/) (the APK of GC Bridge 0.2.2 is in
@@ -64,7 +64,7 @@ built on Linux). Developers can instead install the package as described below.
 | GSE `.gm2` reader/writer | Checked against 18 real GSE v0.6 logs (GB, GBC, Game Boy Player) |
 | Switch 2 **GameCube controller over USB** (`switch2_usb.py`) | Tested with a real controller: init, calibration, 250 Hz stream, sticks, replug. Face buttons, Z, triggers and D-pad confirmed through the controller's standard HID report on Android; the Nintendo-report table follows from it |
 | BizHawk `.bk2` writer, GSE → bk2 conversion | Built from BizHawk's source; not yet loaded in a real BizHawk |
-| Virtual controller replay / bridge (ViGEmBus) | Tested on Windows (XInput read-back) |
+| Virtual controller replay / bridge (ViGEmBus on Windows, uinput on Linux) | Tested on Windows (XInput read-back). Linux: tested on Ubuntu 24.04 (kernel 6.8), read back through SDL3 and through SDL2 2.30 (every button, stick and trigger of the X360 and DS4 pads) |
 | Android capture over adb | Tested only against a simulated adb |
 | **GC Bridge** Android app: `.ctlog` recording, floating overlay, system-wide button capture, USB capture, Bluetooth reader | Gamepad mode and the overlay tried on a Galaxy Z TriFold (button order and stick direction fixed in 0.2.1). On the AYN Thor the pad arrives as AYN's copy: its device data and every button press were captured there, and 0.2.2 reads that copy (not yet run on the Thor). Recording, button capture, USB capture and Bluetooth not yet tried. JVM unit tests cross-checked against the Python code and the shared Thor fixtures |
 | Switch 2 over Bluetooth LE (`switch2_ble.py`) | Built from protocol research and sniffer captures; **never run against a controller** |
@@ -94,7 +94,9 @@ py -3.14 -m venv .venv
 * Replay and `--bridge` need the ViGEmBus driver
   (<https://github.com/nefarius/ViGEmBus/releases>, install 1.22.0 **before**
   the pip step: otherwise `vgamepad` pops up an installer for the old 1.17
-  driver and pip seems frozen until you close it).
+  driver and pip seems frozen until you close it). On Linux they write
+  `/dev/uinput` directly instead (nothing to install; `doctor` says how to get
+  write access if you don't have it).
 * Run commands as `.venv\Scripts\controllerlog <command>`. To type just
   `controllerlog`, activate the venv: in PowerShell first run
   `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force`, then
@@ -122,6 +124,13 @@ the background is transparent) and records to `recordings\`. In the console:
   report rate. It reads the controller's factory stick calibration and streams
   at 250 Hz. ControllerLog releases the controller's USB command channel after
   start-up, so GSE can still use it at the same time.
+* **Using it in other programs on a PC** (emulators, games): most of them
+  can't start the controller themselves (it needs ControllerLog's USB set-up,
+  which SDL2 and older kernels don't do), and on Linux `live` holds the
+  controller while it runs. Run `live --bridge x360` (the bundles'
+  `live-bridge` launcher) and they see a normal Xbox 360 pad that mirrors it,
+  by position: A = A, B = X, X = B, Y = Y, Z = RB, L/R = the triggers
+  (`--bridge-map` changes that).
 * **Bluetooth on a PC:** `controllerlog switch2 scan` / `switch2 test`
   (experimental, untested on hardware; Windows limits it to about 66 Hz).
 * **Android:** the controller has a hidden *standard HID gamepad* mode (report
@@ -152,7 +161,7 @@ Two separate things:
 
 | command | what it does |
 |---|---|
-| `devices` | List controllers (SDL3, Switch 2 over USB, ViGEmBus, `--adb` phones) |
+| `devices` | List controllers (SDL3, Switch 2 over USB, ViGEmBus/uinput, `--adb` phones) |
 | `live` | Capture → live overlay; `--record` writes a `.ctlog`; `--bridge x360\|ds4` mirrors the controller onto a virtual Xbox 360 / DualShock 4 pad; `--adb` adds a phone's controllers; `--switch2 [ADDR]` adds the Bluetooth Switch 2 reader; `--no-switch2-usb` turns off the USB one |
 | `view [FILE]` | Recording viewer: piano roll, frame grid, markers, playback, stats, compare two attempts |
 | `stats FILE` | Press counts, hold times (frames) and mash rates per button |
@@ -228,7 +237,8 @@ pytest -q
 * Tests that need SDL3, the ViGEmBus driver or a real controller skip
   themselves when those aren't there. Install SDL3 from your distribution
   (e.g. `libsdl3`) if you want the SDL tests to run.
-* `vgamepad` (ViGEmBus) is Windows-only and isn't installed on Linux.
+* `vgamepad` (ViGEmBus) is Windows-only and isn't installed on Linux; there the
+  virtual pads use `/dev/uinput` (`controllerlog/output/uinput_pad.py`).
 * Building the Android app needs JDK 21 and the Android SDK (platform
   `android-37.0`, build-tools `37.0.0`); set `ANDROID_HOME` and run
   `./gradlew assembleDebug testDebugUnitTest` in `android/gcbridge`. The unit
@@ -283,8 +293,9 @@ pytest -q
 .venv\Scripts\python -m pytest
 ```
 
-On Windows with the ViGEmBus driver installed, the `vigem`/`sdl` tests drive
-virtual Xbox/DS4 pads through the real SDL3 stack.
+On Windows with the ViGEmBus driver installed, or on Linux with a writable
+`/dev/uinput`, the `vigem`/`sdl` tests drive virtual Xbox/DS4 pads through the
+real SDL3 stack.
 
 ## Credits and license
 

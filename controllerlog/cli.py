@@ -200,7 +200,8 @@ def cmd_devices(args: argparse.Namespace) -> int:
                       f"`switch2 usb`)")
     except Switch2UsbUnavailable:
         pass
-    print(f"Virtual controller (ViGEmBus): {out['vigem']}")
+    driver = "uinput" if sys.platform.startswith("linux") else "ViGEmBus"
+    print(f"Virtual controller ({driver}): {out['vigem']}")
     if "adb" in out:
         print(f"Android (adb): {json.dumps(out['adb'], default=str)}")
     return 0
@@ -920,7 +921,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("layouts", help="list controller layouts")
     sp.set_defaults(func=cmd_layouts)
 
-    sp = sub.add_parser("doctor", help="check SDL3, ViGEmBus, HidHide, Bluetooth adapter, adb, ffmpeg (read-only)")
+    sp = sub.add_parser("doctor", help="check SDL3, ViGEmBus/HidHide (uinput on Linux), Bluetooth adapter, adb, ffmpeg (read-only)")
     sp.add_argument("--json", action="store_true")
     sp.set_defaults(func=cmd_doctor)
 

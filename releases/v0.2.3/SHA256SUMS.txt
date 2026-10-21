@@ -1,0 +1,3 @@
+bb2325f9671f2a2a80d9d978e006673e1e140d9e91770961d1e2c896ea628d79  controllerlog-0.2.3-linux-x64.tar.gz
+d8dd668ab1a839468c67700f4009aae1dfe14e905f737ea029f1152f4adae3ee  controllerlog-0.2.3-windows-x64.zip
+2af8cde23130f29c2721cebd55a13a0b1202b97693b4eeb1e1e2e34ea90c7e8a  GCBridge-0.2.2.apk
