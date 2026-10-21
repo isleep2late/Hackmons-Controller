@@ -90,6 +90,21 @@ def check_uinput() -> Check:
     return Check("uinput", "missing", "not writable - replay and bridge need it", [reason])
 
 
+def check_switch2_usb_access() -> Check:
+    """Linux: can this user open the plugged-in Switch 2 controllers' USB device nodes?"""
+    from .udev import INSTALL_HINT, access_problem, plugged_switch2  # noqa: PLC0415
+    found = plugged_switch2()
+    if not found:
+        return Check("Switch 2 USB access", "info", "no Switch 2 controller plugged in over USB")
+    problems = [f"can't find the device node of USB device {name}" if not node or not os.path.exists(node)
+                else p for name, _, node in found
+                if not node or not os.path.exists(node) or (p := access_problem(node))]
+    if problems:
+        return Check("Switch 2 USB access", "missing", "; ".join(problems), [INSTALL_HINT])
+    return Check("Switch 2 USB access", "ok",
+                 f"{len(found)} controller(s): " + ", ".join(node or name for name, _, node in found))
+
+
 def check_hidhide() -> Check:
     rows = _powershell_json(
         "Get-CimInstance Win32_PnPSignedDriver | Where-Object { $_.DeviceName -like '*HidHide*' } "
@@ -190,7 +205,8 @@ def check_tool(name: str, env: str, why: str, extra_paths: list[str] = ()) -> Ch
 
 def run_checks() -> list[Check]:
     local = os.environ.get("LOCALAPPDATA", "")
-    virtual = [check_uinput()] if sys.platform.startswith("linux") else [check_vigem(), check_hidhide()]
+    virtual = ([check_uinput(), check_switch2_usb_access()] if sys.platform.startswith("linux")
+               else [check_vigem(), check_hidhide()])
     checks = [check_sdl(), *virtual, *check_bluetooth(), check_ble(),
               check_tool("adb", "CONTROLLERLOG_ADB", "only needed for Android capture: install "
                          "Android SDK platform-tools",

@@ -247,9 +247,8 @@ def _driver_help(err: BaseException) -> str:
     if USE_UINPUT:
         from .uinput_pad import UINPUT_PATH  # noqa: PLC0415
         return (f"Virtual controllers need write access to {UINPUT_PATH}: run "
-                "'sudo modprobe uinput', then give your user access (a udev rule such as "
-                'KERNEL=="uinput", TAG+="uaccess" in /etc/udev/rules.d/60-uinput.rules, or '
-                "the group that owns the device). "
+                "./install-udev-rules once (or: controllerlog udev-rules --install), then log "
+                "out and back in if it still fails. "
                 f"Underlying error: {type(err).__name__}: {err}")
     return ("Virtual controllers are only supported on Windows (ViGEmBus) and Linux "
             f"(uinput). Underlying error: {type(err).__name__}: {err}")

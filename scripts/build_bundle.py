@@ -5,6 +5,7 @@ controllerlog package and every dependency, SDL3, and launchers::
 
     controllerlog-<version>-windows-x64/     controllerlog-<version>-linux-x64/
         controllerlog.cmd  live.cmd  doctor.cmd    controllerlog  live  live-bridge  doctor
+                                                   install-udev-rules
         python/  (python.exe, Lib/site-packages, vendor/SDL3.dll)
         README.txt
 
@@ -59,8 +60,10 @@ TARGETS = {
     },
     "linux": {
         "pbs": "x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
+        # Nothing newer than manylinux_2_28: with SDL3 built on glibc 2.28 too
+        # (scripts/build_sdl3_linux.sh) the bundle runs on Ubuntu 20.04 / Debian 11 and later.
         "platforms": ["manylinux_2_17_x86_64", "manylinux2014_x86_64", "manylinux_2_28_x86_64",
-                      "manylinux_2_34_x86_64", "linux_x86_64"],
+                      "linux_x86_64"],
         "env": {"platform_system": "Linux", "sys_platform": "linux", "os_name": "posix",
                 "platform_machine": "x86_64"},
         "site": ("lib", "python3.14", "site-packages"),
@@ -242,12 +245,12 @@ def write_launchers(bundle: Path, platform: str, version: str) -> None:
             "@echo off\r\n\"%~dp0python\\python.exe\" -m controllerlog %*\r\n", encoding="ascii")
         (bundle / "live.cmd").write_text(
             "@echo off\r\necho Starting the live overlay (recording on). Close this window or press q to stop.\r\n"
-            "\"%~dp0python\\python.exe\" -m controllerlog live --record --open\r\npause\r\n",
+            "\"%~dp0python\\python.exe\" -m controllerlog live --record --open %*\r\npause\r\n",
             encoding="ascii")
         (bundle / "live-bridge.cmd").write_text(
             "@echo off\r\necho Starting the live overlay (recording on) and a virtual Xbox 360 pad. "
             "Close this window or press q to stop.\r\n"
-            "\"%~dp0python\\python.exe\" -m controllerlog live --record --open --bridge x360\r\npause\r\n",
+            "\"%~dp0python\\python.exe\" -m controllerlog live --record --open --bridge x360 %*\r\npause\r\n",
             encoding="ascii")
         (bundle / "doctor.cmd").write_text(
             "@echo off\r\n\"%~dp0python\\python.exe\" -m controllerlog doctor\r\npause\r\n",
@@ -257,8 +260,9 @@ def write_launchers(bundle: Path, platform: str, version: str) -> None:
             encoding="ascii")
     else:
         sh = "#!/bin/sh\nHERE=$(cd \"$(dirname \"$0\")\" && pwd)\n"
-        for name, args in (("controllerlog", '"$@"'), ("live", "live --record --open"),
-                           ("live-bridge", "live --record --open --bridge x360"),
+        for name, args in (("controllerlog", '"$@"'), ("live", 'live --record --open "$@"'),
+                           ("live-bridge", 'live --record --open --bridge x360 "$@"'),
+                           ("install-udev-rules", "udev-rules --install"),
                            ("doctor", "doctor"), ("view", 'view "$@"')):
             p = bundle / name
             p.write_text(sh + f'exec "$HERE/python/bin/python3" -m controllerlog {args}\n')
@@ -273,12 +277,15 @@ def write_launchers(bundle: Path, platform: str, version: str) -> None:
            "    controllerlog.cmd <command> ...      e.g.  controllerlog.cmd stats recordings\\run.ctlog\n\n"
            "Replay and --bridge need the ViGEmBus driver: https://github.com/nefarius/ViGEmBus/releases\n"
            if platform == "windows" else
+           "First time on this computer: run ./install-udev-rules once (asks for your sudo\n"
+           "password), then replug the controller. It lets your user open Switch 2 controllers\n"
+           "over USB and create virtual controllers (Steam's udev rules do the same, so a\n"
+           "computer with Steam installed may not need it). ./doctor checks both.\n\n"
            "Run ./live for the live overlay with recording, ./live-bridge to also mirror the\n"
            "controller onto a virtual Xbox 360 pad (so emulators and games that cannot read it\n"
            "see a normal gamepad, e.g. the Switch 2 GameCube pad), ./doctor for the setup check,\n"
            "./view for the recording viewer, or ./controllerlog <command> for anything else.\n"
-           "Reading controllers needs access to /dev/input (be in the 'input' group or use udev\n"
-           "rules); replay and the bridge need write access to /dev/uinput (./doctor says how).\n")
+           "Extra options go after the launcher, e.g. ./live-bridge --bridge-map east:south.\n")
         + "\nRecordings go to ./recordings. Full documentation: README.md in the repository\n"
         "(https://github.com/isleep2late/Hackmons-Controller).\n", encoding="utf-8")
 

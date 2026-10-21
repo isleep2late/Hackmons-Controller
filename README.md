@@ -33,12 +33,28 @@ Ready-made builds are attached to the repository's
 |---|---|
 | `GCBridge-<version>.apk` | the Android app; open it on the phone or `adb install -r` it ([install notes](android/README.md#install)) |
 | `controllerlog-<version>-windows-x64.zip` | portable Windows program: unzip anywhere, double-click `live.cmd` (overlay + recording), `doctor.cmd` or `view.cmd`, or run `controllerlog.cmd <command>`. Includes Python 3.14, all dependencies and SDL3.dll; nothing to install. Replay / `--bridge` still need the [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases) |
-| `controllerlog-<version>-linux-x64.tar.gz` | the same for Linux (x86-64; the bundled SDL3 is built on the latest Ubuntu LTS, so it needs a glibc at least that new): `./live`, `./live-bridge`, `./doctor`, `./view`, `./controllerlog <command>`; SDL3 is included |
+| `controllerlog-<version>-linux-x64.tar.gz` | the same for Linux (x86-64, glibc 2.28 or newer: Ubuntu 20.04, Debian 11, Fedora, Arch and later): `./live`, `./live-bridge`, `./doctor`, `./view`, `./controllerlog <command>`; SDL3 is included. On a new computer run `./install-udev-rules` once first (see [Linux set-up](#linux-set-up)) |
 
-Until GitHub Actions can publish releases for this repository, the same files are committed
-in [`releases/v0.2.1/`](releases/v0.2.1/) (the APK of GC Bridge 0.2.2 is in
-[`releases/v0.2.2/`](releases/v0.2.2/); the PC programs there are still 0.2.1): open a file
-there on GitHub and use its **Download raw file** button.
+The newest files are attached to the
+[latest release](https://github.com/isleep2late/Hackmons-Controller/releases/latest).
+Older ones are committed in [`releases/v0.2.1/`](releases/v0.2.1/) and
+[`releases/v0.2.2/`](releases/v0.2.2/) (open a file there on GitHub and use its
+**Download raw file** button).
+
+### Linux set-up
+
+A stock Linux install doesn't let a normal user open the Switch 2 controllers over USB or
+create virtual controllers. Once per computer, inside the unpacked folder:
+
+```bash
+./install-udev-rules
+```
+
+It asks for your sudo password, writes `/etc/udev/rules.d/60-controllerlog.rules` (the
+same kind of `uaccess` rules Steam installs, so a computer with Steam may already work) and
+reloads udev. Then unplug and replug the controller; `./doctor` should show
+`Switch 2 USB access` and `uinput` as ok. `controllerlog udev-rules` prints the rules if you
+would rather install them yourself.
 
 `python scripts/build_bundle.py --platform windows|linux` builds the bundles (both can be
 built on Linux). Developers can instead install the package as described below.
@@ -64,7 +80,7 @@ built on Linux). Developers can instead install the package as described below.
 | GSE `.gm2` reader/writer | Checked against 18 real GSE v0.6 logs (GB, GBC, Game Boy Player) |
 | Switch 2 **GameCube controller over USB** (`switch2_usb.py`) | Tested with a real controller: init, calibration, 250 Hz stream, sticks, replug. Face buttons, Z, triggers and D-pad confirmed through the controller's standard HID report on Android; the Nintendo-report table follows from it |
 | BizHawk `.bk2` writer, GSE → bk2 conversion | Built from BizHawk's source; not yet loaded in a real BizHawk |
-| Virtual controller replay / bridge (ViGEmBus on Windows, uinput on Linux) | Tested on Windows (XInput read-back). Linux: tested on Ubuntu 24.04 (kernel 6.8), read back through SDL3 and through SDL2 2.30 (every button, stick and trigger of the X360 and DS4 pads) |
+| Virtual controller replay / bridge (ViGEmBus on Windows, uinput on Linux) | Tested on Windows (XInput read-back). Linux: tested on Ubuntu 24.04 (kernel 6.8), read back through SDL3 and through SDL2 2.30 (every button, stick and trigger of the X360 and DS4 pads). The Linux bundle starts and loads SDL3 on Ubuntu 20.04/22.04, Debian 11/12, Fedora and Arch (containers; no controller attached there) |
 | Android capture over adb | Tested only against a simulated adb |
 | **GC Bridge** Android app: `.ctlog` recording, floating overlay, system-wide button capture, USB capture, Bluetooth reader | Gamepad mode and the overlay tried on a Galaxy Z TriFold (button order and stick direction fixed in 0.2.1). On the AYN Thor the pad arrives as AYN's copy: its device data and every button press were captured there, and 0.2.2 reads that copy (not yet run on the Thor). Recording, button capture, USB capture and Bluetooth not yet tried. JVM unit tests cross-checked against the Python code and the shared Thor fixtures |
 | Switch 2 over Bluetooth LE (`switch2_ble.py`) | Built from protocol research and sniffer captures; **never run against a controller** |
@@ -174,6 +190,7 @@ Two separate things:
 | `gm2 info FILE` / `gm2 list` | Inspect GSE input logs (default `%APPDATA%\GSE\Input Log`) |
 | `layouts` | List overlay layouts (Xbox, PlayStation, Switch, GameCube, Game Boy, GBA, generic) |
 | `doctor` | Read-only setup check |
+| `udev-rules` | Linux: print the udev rules for Switch 2 controllers over USB and virtual controllers; `--install` writes them with sudo (the bundle's `./install-udev-rules`) |
 | `optimize` | Search a window of a BizHawk `.bk2` for better inputs, evaluated in BizHawk |
 | `switch2 usb\|scan\|test` | Switch 2 controllers: USB reader, Bluetooth scan/test |
 

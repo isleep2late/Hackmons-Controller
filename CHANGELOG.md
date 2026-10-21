@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.2.4
+
+PC programs only; the Android app stays at 0.2.2.
+
+* **The Linux bundle runs on older distributions.** Its SDL3 (still 3.4.16) is now built in the
+  manylinux_2_28 container (`scripts/build_sdl3_linux.sh`, also used by the Release workflow),
+  and the bundle takes no wheels newer than manylinux_2_28, so it needs glibc 2.28 instead of
+  2.38: Ubuntu 20.04/22.04, Debian 11/12, Mint 20/21 and the like work now.
+* **`./install-udev-rules`** (or `controllerlog udev-rules --install`; `controllerlog udev-rules`
+  prints them): one-time set-up for a computer without Steam. It gives the user of the local
+  desktop session the Switch 2 controllers over USB and `/dev/uinput` (the bridge), the same
+  kind of `uaccess` rules Steam installs. Before this, such a computer could only fail with
+  "can't open ... open failed".
+* That message now says why: no permission (with the fix), or the controller is in use by
+  another program (only one `live` can read it). It is logged once instead of every second.
+* `doctor` on Linux checks access to every plugged-in Switch 2 controller.
+* The launchers pass extra options through: `./live --bridge x360`, `./live-bridge --bridge-map ...`.
+
 ## v0.2.3
 
 PC programs only (Windows and Linux bundles); the Android app stays at 0.2.2.

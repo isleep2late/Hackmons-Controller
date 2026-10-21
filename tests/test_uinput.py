@@ -211,7 +211,7 @@ def test_virtual_pad_uinput_permission_error(monkeypatch):
     monkeypatch.setattr(up, "UinputPad", denied)
     with pytest.raises(vp.VirtualPadUnavailable, match="/dev/uinput") as ei:
         vp.create_virtual_pad("x360")
-    assert "uaccess" in str(ei.value)
+    assert "install-udev-rules" in str(ei.value)
 
 
 def test_unavailable_reason_checks_uinput(monkeypatch):
