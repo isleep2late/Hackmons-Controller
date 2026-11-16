@@ -58,6 +58,7 @@ public final class KeyCaptureService extends AccessibilityService {
         }
         instance = this;
         InputRouter.hold(this, this);
+        RemoteFeed.hold(this, this);
         Log.i(MainActivity.TAG, "KeyCaptureService connected");
         MainActivity.log("Button capture (accessibility service) is on");
     }
@@ -85,6 +86,7 @@ public final class KeyCaptureService extends AccessibilityService {
     public boolean onUnbind(Intent intent) {
         instance = null;
         InputRouter.release(this);
+        RemoteFeed.release(this);
         MainActivity.log("Button capture (accessibility service) is off");
         return super.onUnbind(intent);
     }
@@ -93,6 +95,7 @@ public final class KeyCaptureService extends AccessibilityService {
     public void onDestroy() {
         instance = null;
         InputRouter.release(this);
+        RemoteFeed.release(this);
         super.onDestroy();
     }
 }

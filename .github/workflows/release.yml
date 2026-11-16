@@ -2,16 +2,16 @@
 #   GCBridge-<version>.apk                    the Android app
 #   controllerlog-<version>-windows-x64.zip   portable Windows program (no Python needed)
 #   controllerlog-<version>-linux-x64.tar.gz  portable Linux program
-# Run it from the Actions tab (workflow_dispatch) or push a tag like v0.2.0.
+# Run it from the Actions tab (workflow_dispatch) or push a tag like v0.3.0.
 name: Release
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to create or update (e.g. v0.2.0)"
+        description: "Release tag to create or update (e.g. v0.3.0)"
         required: true
-        default: "v0.2.0"
+        default: "v0.3.0"
       prerelease:
         description: "Mark the release as a pre-release"
         type: boolean

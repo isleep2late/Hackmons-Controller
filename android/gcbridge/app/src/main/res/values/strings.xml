@@ -72,6 +72,9 @@
     <string name="btn_ble_start">Scan &amp; connect</string>
     <string name="btn_ble_stop">Disconnect</string>
     <string name="ble_unsupported">This device has no Bluetooth LE.</string>
+    <string name="section_remote">is2l Remote</string>
+    <string name="remote_hint">is2l Remote is a separate program that lets you use a controller to play games remotely on your desktop: GC Bridge (Hackmons Controller) is where you set up, check and calibrate the controller, and is2l Remote carries it to the PC as a virtual Xbox-style controller. With is2l Remote or a game in front, GC Bridge sends only what USB capture and Bluetooth capture read; a controller that Android reads itself is left to is2l Remote.</string>
+    <string name="remote_switch">Send this controller to is2l Remote</string>
     <string name="recordings_title">Recordings</string>
     <string name="recordings_none">No recordings yet. Tap Record, press some buttons, then Stop recording.</string>
     <string name="recordings_share">Share</string>
