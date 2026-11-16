@@ -202,6 +202,9 @@ Steps:
 3. In the **is2l Remote** section switch on **Send this controller to is2l Remote**. The
    status line below it says `off`, `is2l Remote not installed` (with the download address),
    `connecting to is2l Remote` or `connected, N states sent`. The setting is remembered.
+   Since 0.3.1 GC Bridge sends only to an is2l Remote signed with the certificate of the
+   is2l Remote releases; for any other app under that name the status line says that it is
+   not the official release and nothing is sent (a copy you built yourself counts as other).
 4. Open is2l Remote and connect to the PC. While GC Bridge is sending, is2l Remote uses that
    controller as its first controller instead of reading one itself; when GC Bridge stops
    (switch off, controller gone, capture stopped) is2l Remote goes back to its own reading

@@ -2,11 +2,14 @@ package com.controllerlog.gcbridge;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 
 public class RemoteFeedTest {
 
@@ -111,6 +114,57 @@ public class RemoteFeedTest {
         String missing = RemoteFeed.statusText(true, RemoteFeed.LINK_NOT_INSTALLED, 0);
         assertTrue(missing.startsWith("is2l Remote not installed"));
         assertTrue(missing.contains("https://github.com/isleep2late/is2l-remote/releases"));
+    }
+
+    @Test
+    public void pinnedCertificateIsTheIs2lRemoteReleaseOne() {
+        assertEquals("84b56217735286469bdc3db3eab919c275bf7d5a85a41b4fa13170e2758d866d",
+                RemoteFeed.REMOTE_CERT_SHA256);
+        assertEquals("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+                RemoteFeed.sha256Hex("abc".getBytes(StandardCharsets.US_ASCII)));
+        assertEquals("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                RemoteFeed.sha256Hex(new byte[0]));
+    }
+
+    @Test
+    public void onlyThePinnedCertificateIsAccepted() {
+        byte[] good = "abc".getBytes(StandardCharsets.US_ASCII);
+        byte[] other = "abd".getBytes(StandardCharsets.US_ASCII);
+        String pin = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+        assertTrue(RemoteFeed.signedWith(pin, new byte[][]{good}));
+        assertTrue(RemoteFeed.signedWith(pin.toUpperCase(Locale.ROOT), new byte[][]{good}));
+        assertTrue(RemoteFeed.signedWith("BA:78:16:BF:8F:01:CF:EA:41:41:40:DE:5D:AE:22:23:"
+                + "B0:03:61:A3:96:17:7A:9C:B4:10:FF:61:F2:00:15:AD", new byte[][]{good}));
+        assertTrue(RemoteFeed.signedWith(pin, new byte[][]{good, good}));
+        assertFalse(RemoteFeed.signedWith(pin, new byte[][]{other}));
+        assertFalse(RemoteFeed.signedWith(pin, new byte[][]{good, other}));
+        assertFalse(RemoteFeed.signedWith(pin, new byte[][]{good, null}));
+        assertFalse(RemoteFeed.signedWith(pin, new byte[0][]));
+        assertFalse(RemoteFeed.signedWith(pin, null));
+        assertFalse(RemoteFeed.signedWith(null, new byte[][]{good}));
+        assertFalse(RemoteFeed.signedWith("", new byte[][]{good}));
+        assertFalse(RemoteFeed.signedWith(pin.substring(0, 62), new byte[][]{good}));
+        assertFalse(RemoteFeed.signedWith(RemoteFeed.REMOTE_CERT_SHA256, new byte[][]{good}));
+    }
+
+    @Test
+    public void aWrongSignatureIsSaidInPlainWordsAndChecksComeBeforeTheBinding() throws IOException {
+        String refused = RemoteFeed.statusText(true, RemoteFeed.LINK_UNTRUSTED, 0);
+        assertTrue(refused.startsWith("The is2l Remote on this device is not the official release"));
+        assertTrue(refused.contains("nothing is sent to it"));
+        assertTrue(refused.contains(RemoteFeed.RELEASES_URL));
+        assertEquals("off", RemoteFeed.statusText(false, RemoteFeed.LINK_UNTRUSTED, 0));
+        String src = TestFiles.javaSource("RemoteFeed.java");
+        int check = src.indexOf("if (!trusted()) {\n            refuse();\n            return;");
+        int bind = src.indexOf("app.bindService(");
+        assertTrue(check > 0);
+        assertTrue(bind > check);
+        assertEquals(bind, src.lastIndexOf("app.bindService("));
+        int connected = src.indexOf("public void onServiceConnected");
+        int recheck = src.indexOf("if (!trusted()) {", connected);
+        int messenger = src.indexOf("messenger = new Messenger(service)");
+        assertTrue(connected > 0 && recheck > connected && messenger > recheck);
+        assertEquals(messenger, src.lastIndexOf("messenger = new Messenger("));
     }
 
     @Test
