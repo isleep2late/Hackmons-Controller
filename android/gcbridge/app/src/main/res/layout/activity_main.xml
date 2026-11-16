@@ -375,6 +375,31 @@
             android:layout_height="wrap_content"
             android:text="@string/btn_ble_start" />
 
+        <!-- ===== is2l Remote ===== -->
+        <TextView
+            style="@style/SectionTitle"
+            android:text="@string/section_remote" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/remote_hint"
+            android:textSize="12sp" />
+
+        <Switch
+            android:id="@+id/remote_switch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:minHeight="48dp"
+            android:text="@string/remote_switch" />
+
+        <TextView
+            android:id="@+id/remote_status"
+            style="@style/MonoBlock"
+            android:autoLink="web" />
+
         <!-- ===== Diagnostics ===== -->
         <LinearLayout
             style="?android:attr/buttonBarStyle"

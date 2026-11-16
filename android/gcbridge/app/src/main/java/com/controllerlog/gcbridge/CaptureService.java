@@ -140,6 +140,7 @@ public final class CaptureService extends Service implements InputHub.Listener {
         }
         hub.addListener(this);
         InputRouter.hold(this, this);
+        RemoteFeed.hold(this, this);
         main.postDelayed(ticker, TICK_MS);
     }
 
@@ -236,6 +237,7 @@ public final class CaptureService extends Service implements InputHub.Listener {
         main.removeCallbacks(ticker);
         hub.removeListener(this);
         InputRouter.release(this);
+        RemoteFeed.release(this);
         stopRecording();
         hideOverlay();
         stopUsbCapture();
@@ -465,6 +467,9 @@ public final class CaptureService extends Service implements InputHub.Listener {
         }
         if (ble != null && ble.isActive()) {
             sb.append(" · BLE ").append(ble.status());
+        }
+        if (RemoteFeed.connected()) {
+            sb.append(" · is2l Remote");
         }
         InputHub.Device d = hub.activeDevice();
         if (d != null) {

@@ -173,6 +173,13 @@ Two separate things:
    * makes the Switch 2 GameCube/Pro controller work over USB-C as a gamepad,
      or reads it directly (USB capture; Bluetooth LE experimentally).
 
+**Play on your PC with is2l Remote.** [is2l Remote](https://github.com/isleep2late/is2l-remote/releases)
+is a separate program that lets you use a controller to play games remotely on your
+desktop. From 0.3.0 GC Bridge can hand it the controller it reads: you set up, check and
+calibrate the controller in GC Bridge, switch on *Send this controller to is2l Remote*, and
+is2l Remote carries it to the PC as a virtual Xbox-style controller. Not yet tested on a
+device; see [android/README.md](android/README.md#play-on-your-pc-with-is2l-remote).
+
 ## Commands
 
 | command | what it does |

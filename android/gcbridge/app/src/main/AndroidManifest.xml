@@ -33,6 +33,11 @@
         android:name="android.permission.ACCESS_FINE_LOCATION"
         android:maxSdkVersion="30" />
 
+    <!-- is2l Remote (a separate app): GC Bridge binds to its controller feed service -->
+    <queries>
+        <package android:name="com.isleep2late.remote" />
+    </queries>
+
     <application
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"

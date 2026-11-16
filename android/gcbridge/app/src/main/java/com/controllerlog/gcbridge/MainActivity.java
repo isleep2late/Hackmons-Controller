@@ -37,6 +37,7 @@ import android.widget.RadioGroup;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.Spinner;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -141,6 +142,7 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
     private TextView usbStatusView;
     private TextView bleStatusView;
     private TextView accessibilityStatus;
+    private TextView remoteStatus;
     private Spinner layoutSpinner;
     private String previewFamily;
     private String previewLayoutPref;
@@ -321,6 +323,8 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
         inputManager.registerInputDeviceListener(this, main);
         hub.addListener(this);
         InputRouter.hold(this, this);
+        RemoteFeed.hold(this, this);
+        RemoteFeed.screenFocus(hasWindowFocus());
         refreshDevices();
         refreshControllers();
         refreshCaptureUi();
@@ -339,6 +343,8 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
         inputManager.unregisterInputDeviceListener(this);
         hub.removeListener(this);
         InputRouter.release(this);
+        RemoteFeed.screenFocus(false);
+        RemoteFeed.release(this);
         main.removeCallbacks(devicesRefresher);
         main.removeCallbacks(statusUpdater);
         statusUpdatePending = false;
@@ -348,6 +354,12 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
         logUpdatePending = false;
         main.removeCallbacks(calibTicker);
         super.onStop();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        RemoteFeed.screenFocus(hasFocus && started);
     }
 
     @Override
@@ -951,6 +963,16 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
         usbCaptureButton.setOnClickListener(v -> onUsbCaptureClicked());
         bleButton.setOnClickListener(v -> onBleClicked());
 
+        remoteStatus = findViewById(R.id.remote_status);
+        Switch remoteSwitch = findViewById(R.id.remote_switch);
+        RemoteFeed remote = RemoteFeed.get(this);
+        remoteSwitch.setChecked(remote.isEnabled());
+        remoteSwitch.setOnCheckedChangeListener((button, checked) -> {
+            remote.setEnabled(checked);
+            log("is2l Remote feed " + (checked ? "on" : "off"));
+            scheduleStatusUpdate();
+        });
+
         String[] names = LayoutStore.names(this);
         String[] entries = new String[names.length + 1];
         entries[0] = "auto";
@@ -1197,6 +1219,7 @@ public class MainActivity extends Activity implements InputManager.InputDeviceLi
         usbStatusView.setText("USB capture: " + CaptureService.usbStatus());
         bleButton.setText(CaptureService.bleActive() ? R.string.btn_ble_stop : R.string.btn_ble_start);
         bleStatusView.setText("Bluetooth: " + CaptureService.bleStatus());
+        remoteStatus.setText("Feed: " + RemoteFeed.get(this).status());
         if (KeyCaptureService.isConnected()) {
             accessibilityStatus.setText(R.string.accessibility_on);
         } else if (KeyCaptureService.isEnabledInSettings(this)) {

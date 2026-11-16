@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.3.0
+
+GC Bridge only (the APK, versionCode 5); the PC programs stay at 0.2.4.
+
+* **Play on your PC with is2l Remote.** [is2l Remote](https://github.com/isleep2late/is2l-remote/releases)
+  is a separate program that lets you use a controller to play games remotely on your desktop.
+  GC Bridge has a new **is2l Remote** section with the switch *Send this controller to is2l
+  Remote* (off by default, remembered): GC Bridge stays the place where you set up, check and
+  calibrate the controller, and is2l Remote carries it to the PC as a virtual Xbox-style
+  controller. The status line says off, is2l Remote not installed (with the download address),
+  connecting, or connected with the number of states sent.
+* What is sent is the controller that produced input most recently. With is2l Remote in
+  front, USB capture and Bluetooth capture keep sending everything; a controller that Android
+  reads itself is sent only while the GC Bridge screen has the focus and is otherwise left to
+  is2l Remote, which reads it completely by itself (Button capture alone has no sticks).
+* How: GC Bridge binds to is2l Remote's feed service (`com.isleep2late.remote.PAD_FEED`) and
+  posts the whole state (buttons in SDL order, four stick axes, two triggers, the name) on
+  every change, at most once per 4 ms, and again every 500 ms; it says so when the controller
+  is gone, and reconnects when is2l Remote restarts. No new permission.
+* **Not tested on a device**: checked by the JVM unit tests only (`RemoteFeedTest`).
+
 ## v0.2.4
 
 PC programs only; the Android app stays at 0.2.2.

@@ -1,6 +1,8 @@
 # GC Bridge (Android)
 
-The Android side of Hackmons Controller. One app, four jobs:
+The Android side of Hackmons Controller. One app, four jobs (and since 0.3.0 a fifth, not yet
+tested: [handing the controller to is2l Remote](#play-on-your-pc-with-is2l-remote) to play on
+your PC):
 
 1. **Log controller input on the phone** to the same `.ctlog` format the PC tools use, so a
    recording made on the phone opens in `controllerlog view`, `stats`, `render`, `convert` and
@@ -175,6 +177,56 @@ overlay dims Home, Capture and C for it. **USB capture** reads the pad itself an
 get every button, both sticks fully and the analog triggers, but it has not yet been tried on
 the Thor.
 
+### Play on your PC with is2l Remote
+
+[is2l Remote](https://github.com/isleep2late/is2l-remote/releases) is a separate program that
+lets you use a controller to play games remotely on your desktop. GC Bridge is where you set
+up, check and calibrate the controller; is2l Remote carries it to the PC as a virtual
+Xbox-style controller. Since 0.3.0 GC Bridge can hand the controller it reads to is2l Remote
+on the same phone, so a controller that only GC Bridge can read (the Switch 2 GameCube / Pro
+pad over USB capture or Bluetooth capture) can be used there. A controller that Android reads
+itself is read by is2l Remote directly while you play, without GC Bridge's saved profile.
+
+**Status: NOT TESTED on a device.** The feed has only been checked by the JVM unit tests (the
+packing of buttons and axes, the rate limit, the status text); nothing has yet been sent from
+a real phone to a real is2l Remote. Please copy the log (Copy all) after trying it.
+
+Steps:
+
+1. Install is2l Remote from its
+   [releases page](https://github.com/isleep2late/is2l-remote/releases) (a version that has
+   the controller feed) and set it up with your PC as its own instructions say.
+2. In GC Bridge, get the controller working first: the **Controllers** section should list it
+   and the live preview should follow your presses. For a Switch 2 GameCube / Pro controller
+   start **USB capture** or **Bluetooth capture**.
+3. In the **is2l Remote** section switch on **Send this controller to is2l Remote**. The
+   status line below it says `off`, `is2l Remote not installed` (with the download address),
+   `connecting to is2l Remote` or `connected, N states sent`. The setting is remembered.
+4. Open is2l Remote and connect to the PC. While GC Bridge is sending, is2l Remote uses that
+   controller as its first controller instead of reading one itself; when GC Bridge stops
+   (switch off, controller gone, capture stopped) is2l Remote goes back to its own reading
+   within two seconds.
+
+The controller that is sent is the one that produced input most recently (the one the
+overlay draws). What reaches is2l Remote while it, not GC Bridge, is on screen depends on the
+source:
+
+| Source in GC Bridge | With is2l Remote in front |
+|---|---|
+| The GC Bridge screen (any controller Android supports) | nothing: Android gives the input to the app that has the focus, so GC Bridge lets go of the controller (is2l Remote reads it itself again) as soon as its own screen loses the focus. Useful to check the connection, not to play |
+| **Button capture** (accessibility) | nothing: it has buttons but no sticks or triggers, and a feed without sticks would take over from is2l Remote, which reads the same controller completely by itself |
+| **USB capture** of the Switch 2 GameCube / Pro controller | everything: buttons, both sticks, analog triggers |
+| **Bluetooth capture** (experimental) | everything the reader decodes |
+
+How it works, for the curious: GC Bridge binds to is2l Remote's `PadFeedService` (action
+`com.isleep2late.remote.PAD_FEED`, package `com.isleep2late.remote`) and posts the whole
+state through an Android `Messenger`: a button bit mask in SDL order, the four stick axes and
+two triggers, and the controller's name, on every change (at most one message per 4 ms) and
+again every 500 ms; a second message says the controller is gone. Nothing leaves the phone
+from GC Bridge itself, and it asks for no new permission. The feed lives as long as the
+setting is on and the screen is visible, the capture service runs (recording, overlay, USB
+or Bluetooth capture) or Button capture is on.
+
 ### Controllers: rules, set-up and profiles
 
 The **Controllers** section lists each gamepad with the rule that classified it and why
@@ -273,6 +325,7 @@ android/gcbridge/app/src/main/java/com/controllerlog/gcbridge/
   InputHub.java          state per controller, listeners, recording
   CtlogWriter.java       the .ctlog writer
   CaptureService.java    foreground service: recording, overlay, USB/BLE readers, notification
+  RemoteFeed.java        sends the active controller's state to is2l Remote (bound Messenger)
   KeyCaptureService.java accessibility service (system-wide buttons)
   RecordingStore.java    recording files, Downloads export; RecordingProvider.java for sharing
   Switch2Protocol.java   commands, report decoding, calibration, BLE packets (pure Java)
