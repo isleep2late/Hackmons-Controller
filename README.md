@@ -20,6 +20,12 @@ A speedrunning toolkit for game controllers, inspired by
   a floating controller overlay over your game, and read the Switch 2 GameCube
   controller over USB-C or Bluetooth (the **GC Bridge** app).
 
+* bridge a controller to **[is2l Remote](https://github.com/isleep2late/is2l-remote)**, a
+  modified RustDesk that lets you use a controller to play games remotely on your desktop:
+  the GC Bridge app hands it the controller on the Android side, and on the Linux computer
+  `./install-udev-rules` and `./doctor` prepare and check `uinput`, which its virtual
+  controller needs (see [Android](#android)).
+
 The Python package and command are called **`controllerlog`**. The Android
 companion app is **GC Bridge** ([android/README.md](android/README.md)).
 
