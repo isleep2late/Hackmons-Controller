@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.3.1
+
+GC Bridge only (the APK, versionCode 6); the PC programs stay at 0.2.4.
+
+* **GC Bridge sends the controller only to the official is2l Remote.** Until now the feed
+  trusted whatever app was installed under the name `com.isleep2late.remote`. Before it
+  connects, and again when the connection is made, GC Bridge now checks that the installed
+  is2l Remote is signed with the certificate of the is2l Remote releases (SHA-256
+  `84b56217735286469bdc3db3eab919c275bf7d5a85a41b4fa13170e2758d866d`). That value was verified:
+  `apksigner verify --print-certs` on the published `is2l-remote-0.1.0-android-arm64.apk`
+  (package `com.isleep2late.remote`) prints it. When the installed app is signed with anything
+  else, GC Bridge does not connect and sends nothing, and the status
+  line in the **is2l Remote** section says: *The is2l Remote on this device is not the official
+  release, so nothing is sent to it. Remove it and install is2l Remote from* the releases page.
+  It checks again every three seconds, so installing the official release is enough.
+* An is2l Remote you built yourself is signed with your own key and is therefore refused; use
+  a released APK together with GC Bridge.
+* **Not tested on a device**: checked by the JVM unit tests only (`RemoteFeedTest`, now 11).
+
 ## v0.3.0
 
 GC Bridge only (the APK, versionCode 5); the PC programs stay at 0.2.4.

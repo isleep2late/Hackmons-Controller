@@ -5,7 +5,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.Signature;
+import android.content.pm.SigningInfo;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.DeadObjectException;
 import android.os.Handler;
@@ -17,8 +21,11 @@ import android.os.RemoteException;
 import android.os.SystemClock;
 import android.util.Log;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -37,6 +44,8 @@ final class RemoteFeed implements InputHub.Listener {
     static final String REMOTE_PACKAGE = "com.isleep2late.remote";
     static final String ACTION_PAD_FEED = "com.isleep2late.remote.PAD_FEED";
     static final String RELEASES_URL = "https://github.com/isleep2late/is2l-remote/releases";
+    static final String REMOTE_CERT_SHA256 =
+            "84b56217735286469bdc3db3eab919c275bf7d5a85a41b4fa13170e2758d866d";
     static final String PREF_ENABLED = "remote_feed";
 
     static final int MSG_PAD_STATE = 1;
@@ -57,6 +66,7 @@ final class RemoteFeed implements InputHub.Listener {
     static final int LINK_NO_FEED = 2;
     static final int LINK_CONNECTING = 3;
     static final int LINK_CONNECTED = 4;
+    static final int LINK_UNTRUSTED = 5;
 
     // --- pure logic (no Android classes; RemoteFeedTest) ---------------------------------------
 
@@ -120,6 +130,37 @@ final class RemoteFeed implements InputHub.Listener {
         }
     }
 
+    static String sha256Hex(byte[] data) {
+        byte[] digest;
+        try {
+            digest = MessageDigest.getInstance("SHA-256").digest(data);
+        } catch (NoSuchAlgorithmException e) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder(digest.length * 2);
+        for (byte b : digest) {
+            sb.append(Character.forDigit((b >> 4) & 0xf, 16));
+            sb.append(Character.forDigit(b & 0xf, 16));
+        }
+        return sb.toString();
+    }
+
+    static boolean signedWith(String pinnedSha256, byte[][] certificates) {
+        if (pinnedSha256 == null || certificates == null || certificates.length == 0) {
+            return false;
+        }
+        String want = pinnedSha256.replace(":", "").replace(" ", "").toLowerCase(Locale.ROOT);
+        if (want.length() != 64) {
+            return false;
+        }
+        for (byte[] certificate : certificates) {
+            if (certificate == null || !want.equals(sha256Hex(certificate))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     static final int SEND_ALL = 0;
     static final int SEND_NOTHING = 2;
 
@@ -143,6 +184,9 @@ final class RemoteFeed implements InputHub.Listener {
                 return "is2l Remote not installed. Get it from " + RELEASES_URL;
             case LINK_NO_FEED:
                 return "is2l Remote is installed but has no controller feed (update is2l Remote)";
+            case LINK_UNTRUSTED:
+                return "The is2l Remote on this device is not the official release, so nothing"
+                        + " is sent to it. Remove it and install is2l Remote from " + RELEASES_URL;
             case LINK_CONNECTED:
                 return "connected, " + statesSent + " states sent";
             case LINK_CONNECTING:
@@ -228,6 +272,11 @@ final class RemoteFeed implements InputHub.Listener {
         public void onServiceConnected(ComponentName name, IBinder service) {
             worker.post(() -> {
                 if (!bound) {
+                    return;
+                }
+                if (!trusted()) {
+                    unbind();
+                    refuse();
                     return;
                 }
                 messenger = new Messenger(service);
@@ -387,6 +436,47 @@ final class RemoteFeed implements InputHub.Listener {
         }
     }
 
+    @SuppressWarnings("deprecation")
+    private byte[][] remoteCertificates() {
+        PackageManager pm = app.getPackageManager();
+        Signature[] signatures = null;
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                PackageInfo info = pm.getPackageInfo(REMOTE_PACKAGE,
+                        PackageManager.GET_SIGNING_CERTIFICATES);
+                SigningInfo signing = info.signingInfo;
+                if (signing != null) {
+                    signatures = signing.getApkContentsSigners();
+                }
+            } else {
+                PackageInfo info = pm.getPackageInfo(REMOTE_PACKAGE,
+                        PackageManager.GET_SIGNATURES);
+                signatures = info.signatures;
+            }
+        } catch (PackageManager.NameNotFoundException | RuntimeException e) {
+            return new byte[0][];
+        }
+        if (signatures == null) {
+            return new byte[0][];
+        }
+        byte[][] out = new byte[signatures.length][];
+        for (int i = 0; i < signatures.length; i++) {
+            out[i] = signatures[i] == null ? null : signatures[i].toByteArray();
+        }
+        return out;
+    }
+
+    private boolean trusted() {
+        return signedWith(REMOTE_CERT_SHA256, remoteCertificates());
+    }
+
+    private void refuse() {
+        if (link != LINK_UNTRUSTED) {
+            MainActivity.log("is2l Remote: " + statusText(true, LINK_UNTRUSTED, 0));
+        }
+        link = LINK_UNTRUSTED;
+    }
+
     private void bind() {
         lastBindMs = SystemClock.uptimeMillis();
         if (!installed()) {
@@ -394,6 +484,10 @@ final class RemoteFeed implements InputHub.Listener {
                 MainActivity.log("is2l Remote is not installed: " + RELEASES_URL);
             }
             link = LINK_NOT_INSTALLED;
+            return;
+        }
+        if (!trusted()) {
+            refuse();
             return;
         }
         Intent intent = new Intent(ACTION_PAD_FEED).setPackage(REMOTE_PACKAGE);
